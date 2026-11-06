@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="swu-csrf" content="{{ csrf }}">
+  <title>WaterIQ | Lab console</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='console.css') }}">
+  <script defer src="{{ url_for('static', filename='console.js') }}"></script>
+  {% if live_enabled %}<script defer src="{{ url_for('static', filename='live.js') }}"></script>{% endif %}
+</head>
+<body data-hosting="{{ 'azure' if hosted else 'local' }}">
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="WaterIQ home">
+      <svg viewBox="0 0 36 42" aria-hidden="true"><path d="M18 2C14 10 3 19 3 27a15 15 0 0030 0C33 19 22 10 18 2Z"/><path class="wave" d="M8 27q5-6 10 0t10 0"/></svg>
+      <span>Water<span class="accent">IQ</span><small>CYBER LAB CONSOLE</small></span>
+    </a>
+    <div class="workspace-label">WORKSPACE</div>
+    <nav aria-label="Console views">
+      {% if live_enabled %}<button class="nav-button" data-view="live"><span class="nav-icon">00</span>Live plant</button>{% endif %}
+      <button class="nav-button" data-view="overview"><span class="nav-icon">01</span>Overview</button>
+      <button class="nav-button" data-view="scenarios"><span class="nav-icon">02</span>Scenarios</button>
+      <button class="nav-button active" data-view="admin" aria-current="page"><span class="nav-icon">03</span>Admin</button>
+    </nav>
+    <div class="sidebar-bottom"><span class="status-dot"></span> {{ 'Azure console' if hosted else 'Local preview' }}<small>{{ 'Entra protected. OT stays private.' if hosted else 'PLC and Azure stay isolated.' }}</small></div>
+  </aside>
+  <main>
+    <header class="topbar"><span>Small water utility <span class="slash">/</span> <strong id="breadcrumb">Administration</strong></span><span class="badge">{{ 'AZURE / ENTRA PROTECTED' if hosted else 'LOCAL PREVIEW' }}</span></header>
+    <div id="message" role="status" aria-live="polite" hidden></div>
+    {% if hosted %}<div id="session-expired" class="notice" role="alert" hidden>
+      <p>Your Microsoft Entra sign-in has expired. Old readings are not live. Sign in again; no control command is automatically retried.</p>
+      <a class="button secondary" href="/.auth/login/aad?post_login_redirect_uri=%2F">Sign in again</a>
+    </div>{% endif %}
+    <section id="view-admin" class="view">
+      <div class="page-heading"><div><div class="eyebrow">YOUR LAB. YOUR RULES.</div><h1>Administration</h1><p>Choose how your lab operates. Keep the safety boundaries intact.</p></div><span id="save-state" class="saved-state">Loading settings...</span></div>
+      <form id="admin-form">
+        <div class="admin-grid">
+          <div class="settings-column">
+            <section class="card">
+              <div class="section-title"><span class="section-number">01</span><div><h2>Operating mode</h2><p>On-demand exploration or evidence-based acceptance.</p></div></div>
+              <fieldset class="mode-options"><legend class="sr-only">Operating mode</legend>
+                <label class="mode-card"><input type="radio" name="mode" value="on-demand"><span class="mode-symbol">&#9654;</span><strong>On demand</strong><span>Generate {{ 'Azure-hosted' if hosted else 'local' }} scenario datasets when you need them. No seven-day wait.</span><small>DEMONSTRATION</small></label>
+                <label class="mode-card"><input type="radio" name="mode" value="acceptance"><span class="mode-symbol">&#10003;</span><strong>Acceptance</strong><span>Preserve seven real days, live ingestion and the original evidence requirements.</span><small>FORMAL VERIFICATION</small></label>
+              </fieldset>
+              <div class="notice">Changing this mode controls the console, not the deployed Azure timers. It never resets or accelerates the live warm-up.</div>
+            </section>
+            <section class="card">
+              <div class="section-title"><span class="section-number">02</span><div><h2>Scenario defaults</h2><p>Set the context for your next dataset run.</p></div></div>
+              <label class="field-label" for="utility">Default utility</label>
+              <select id="utility"><option value="uta">Utility A - OpenPLC / process awareness</option><option value="utb">Utility B - IT baseline / no process collector</option><option value="utc">Utility C - synthetic OT visibility</option></select>
+              <div class="setting-row"><div><label for="confirm-runs">Confirm before generating datasets</label><p>Ask before starting an on-demand dataset.</p></div><input id="confirm-runs" type="checkbox" class="switch"></div>
+            </section>
+            <section class="card">
+              <div class="section-title"><span class="section-number">03</span><div><h2>Microsoft Teams</h2><p>Configure the existing incident notification playbook.</p></div><span class="integration-icon">T</span></div>
+              <div class="setting-row"><div><label for="teams-enabled">Include Teams in deployment configuration</label><p>Off by default. Configuration is not an active connection.</p></div><input id="teams-enabled" type="checkbox" class="switch"></div>
+              <div class="field-grid">
+                <div><label class="field-label" for="team-id">Team ID</label><input id="team-id" type="text" maxlength="200" placeholder="Team GUID" autocomplete="off"></div>
+                <div><label class="field-label" for="channel-id">Channel ID</label><input id="channel-id" type="text" maxlength="200" placeholder="19:...@thread.tacv2" autocomplete="off"></div>
+              </div>
+              <div class="notice purple">No credentials or webhooks are stored here. Export the saved parameters, merge them into the approved Azure deployment, then authorize the Teams connector. The playbook records responses as incident comments; it does not operate the PLC.</div>
+              <a id="teams-export" class="button secondary" href="/api/teams/parameters">Export saved Teams parameters</a>
+            </section>
+            <section id="access-security" class="card" aria-labelledby="access-heading">
+              <div class="section-title"><span class="section-number">04</span><div><h2 id="access-heading">Access &amp; Security</h2><p>{{ 'Azure-hosted console.' if hosted else 'Azure-only target architecture.' }} VPN can be added later.</p></div><span class="badge">{{ 'ENTRA PROTECTED' if hosted else 'PLANNED' }}</span></div>
+              {% if hosted %}
+              <div class="notice purple">{{ hosting_service }} enforces Microsoft Entra sign-in and configured administrator access. VPN/private-only ingress is not configured. The active access policy is read-only here.</div>
+              {% else %}
+              <div class="notice purple">This preview is local-only. Microsoft Entra sign-in and Azure access-policy enforcement are not implemented here. The options below describe the planned Azure deployment, not active protection.</div>
+              {% endif %}
+              <fieldset class="mode-options access-options">
+                <legend class="sr-only">{{ 'Active' if hosted else 'Planned' }} Azure console access policy (read-only)</legend>
+                <label class="mode-card access-card{{ ' azure-active' if hosted else '' }}">
+                  <input id="access-entra" type="radio" name="accessMode" value="authenticated-internet" checked disabled aria-describedby="entra-planned">
+                  <span class="mode-symbol" aria-hidden="true">&#10003;</span>
+                  <strong>Authenticated console</strong>
+                  <span id="entra-planned">{{ 'Active mode: Azure-hosted console with Microsoft Entra sign-in, restricted to configured lab administrators.' if hosted else 'Planned initial mode: Azure-hosted console with Microsoft Entra sign-in.' }} PLC, HMI and gateway remain private.</span>
+                  <small>{{ 'ACTIVE - MICROSOFT ENTRA' if hosted else 'INITIAL TARGET - NOT ACTIVE' }}</small>
+                </label>
+                <label class="mode-card access-card unavailable" aria-disabled="true" title="Unavailable until Azure VPN Gateway and private connectivity are configured and verified.">
+                  <input id="access-vpn" type="radio" name="accessMode" value="vpn-private" disabled aria-describedby="vpn-unavailable">
+                  <span class="mode-symbol" aria-hidden="true">&#9635;</span>
+                  <strong>VPN / private-only</strong>
+                  <span id="vpn-unavailable">Unavailable until VPN Gateway, a private endpoint, private DNS and connectivity verification are implemented. Microsoft Entra sign-in will still be required.</span>
+                  <small>FUTURE OPTION - DISABLED</small>
+                </label>
+              </fieldset>
+              <p class="fine-print access-note">No VPN gateway will be provisioned or billed by this screen. A future Admin-driven switch must verify private access before disabling Internet ingress and retain an Azure management-plane recovery path.</p>
+            </section>
+          </div>
+          <aside class="context-column">
+            <section class="card context-card"><div class="eyebrow">SAFETY BOUNDARY</div><h2>Control stays private.</h2>
+              <svg class="topology" viewBox="0 0 260 195" role="img" aria-label="Console configuration is separate from the private HMI, PLC and gateway">
+                <path class="topology-line" d="M130 40v30M55 115h150M130 115v35"/>
+                <rect x="72" y="12" width="116" height="35" rx="8"/><text x="130" y="34">{{ 'AZURE CONSOLE' if hosted else 'LOCAL PREVIEW' }}</text>
+                <rect x="17" y="90" width="76" height="42" rx="8"/><text x="55" y="116">HMI</text>
+                <rect x="168" y="90" width="76" height="42" rx="8"/><text x="206" y="116">PLC</text>
+                <rect x="72" y="150" width="116" height="35" rx="8"/><text x="130" y="172">GATEWAY</text>
+                <text class="diagram-note" x="130" y="74">no direct browser control</text>
+              </svg>
+              <ul class="check-list"><li>Actual OpenPLC is not replaced</li><li>Gateway remains read-only</li><li>No public PLC or HMI exposure</li><li>Azure changes require a separate apply</li></ul>
+            </section>
+            <section class="card"><div class="eyebrow">DEPLOYMENT READINESS RECORD</div><h3 id="readiness-title">Checking configuration...</h3><p id="readiness-detail"></p><div id="eligible-at" class="date-value"></div><p class="fine-print">This is the saved deployment record, not a current cloud health query. Elapsed time alone is not a pass. Real hourly ingestion and the acceptance harness must also succeed.</p></section>
+            <section class="card compact"><span class="status-dot"></span><strong>{{ 'Persistent Azure settings' if hosted else 'Local settings only' }}</strong><p>{% if blob_storage %}Saved in private Azure Blob Storage using managed identity.{% else %}Saved under <code>{{ '/home/data/wateriq-console' if hosted else 'local-data/console' }}</code>.{% endif %} No Azure credentials, SSH keys or connector secrets are collected by this form.</p></section>
+          </aside>
+        </div>
+        <footer class="save-bar"><p id="unsaved-label">Settings are stored {{ 'in Azure' if hosted else 'locally' }}.</p><div><button id="discard" class="button secondary" type="button">Discard changes</button><button id="save" class="button primary" type="submit">Save configuration</button></div></footer>
+      </form>
+    </section>
+    <section id="view-overview" class="view" hidden>
+      <div class="page-heading"><div><div class="eyebrow">CONTROL ROOM</div><h1>Your lab, at a glance.</h1><p>{{ 'Use Live plant for actual Route A/B observations and bounded actions.' if live_enabled else 'Configuration status, without pretending to be live PLC telemetry.' }}</p></div></div>
+      <div class="summary-grid"><section class="card"><div class="eyebrow">SAVED MODE</div><h2 id="overview-mode"></h2><p id="overview-utility"></p></section><section class="card"><div class="eyebrow">TEAMS PLAYBOOK</div><h2 id="overview-teams"></h2><p>Deployment and tenant connector authorization are separate steps.</p></section><section class="card"><div class="eyebrow">AZURE LAB</div><h2>{{ 'Private route dispatch enabled' if live_enabled else 'Live controls not connected' }}</h2><p>{{ 'Fixed, confirmed actions are queued to private workers. The console cannot connect directly to PLC/HMI addresses.' if live_enabled else 'This console does not start, stop or reconfigure the PLC/HMI lab. Console hosting does not add live scenario execution.' }}</p></section></div>
+      <section class="card"><h2>Clear separation, honest evidence.</h2><p>On-demand datasets are synthetic {{ 'Azure-hosted' if hosted else 'local' }} JSONL files, not live PLC runs or Sentinel incidents. Acceptance requires the existing live harness. Neither mode bypasses private access, manipulates the warm-up date or invents successful detections.</p><button class="button primary" type="button" data-view="admin">Configure the lab</button></section>
+    </section>
+    <section id="view-scenarios" class="view" hidden>
+      <div class="page-heading"><div><div class="eyebrow">ON-DEMAND DATASETS</div><h1>Explore the scenarios.</h1><p>Generate bounded {{ 'Azure-hosted' if hosted else 'local' }} telemetry using the existing scenario engine.</p></div><span class="badge">SYNTHETIC DATA ONLY</span></div>
+      <div class="notice">These runs generate two simulated hours of {{ 'Azure-hosted' if hosted else 'local' }} JSONL. They do not execute PLC/HMI actions, send data to Sentinel or Teams, or certify acceptance. Utility A's physical process steps are not simulated as a replacement for OpenPLC.</div>
+      <div id="scenario-grid" class="scenario-grid"></div>
+      <section id="dataset-result" class="card" hidden><h2>Dataset generated</h2><pre id="result-content"></pre></section>
+    </section>
+    {% if live_enabled %}
+    <section id="view-live" class="view" hidden>
+      <div class="page-heading"><div><div class="eyebrow">ACTUAL OPENPLC / SIMULATED WATER PROCESS</div><h1>Live water plant</h1><p>Two isolated access paths. Real PLC observations, not generated scenario datasets.</p></div><span class="badge">UTILITY A / CPI</span></div>
+      <div class="notice">Route A uses direct private Modbus. Route B uses HTTPS, a username/password and no MFA at the HMI; its direct PLC path is blocked. This administrator console stays Entra protected. Target Entra + MFA and native Defender/firewall/Entra feeds are not deployed.</div>
+      <div class="live-grid">
+      {% for route, label, access in [('routea', 'Route A', 'Direct private PLC access'), ('routeb', 'Route B', 'Password-only HMI / direct PLC blocked')] %}
+        <section class="card live-route" id="{{ route }}-card">
+          <div class="eyebrow">{{ label }}</div><h2>{{ access }}</h2>
+          <p id="{{ route }}-health" role="status">Waiting for the first live observation...</p>
+          <p id="{{ route }}-reading-state" class="fine-print" role="status">NO LIVE OBSERVATION</p>
+          <div class="plant-visual">
+            <svg id="{{ route }}-plant" viewBox="0 0 600 345" class="plant-schematic" role="img" aria-label="{{ label }} sensors and PLC{{ ', with a password-only HMI computer' if route == 'routeb' else ' and direct Modbus command access' }}. Waiting for live observations.">
+              <path class="command-line" d="M150 60H225"/>
+              <path class="command-arrow" d="M223 55L230 60L223 65Z"/>
+              <path class="sensor-link" d="M500 106V165"/>
+              <path class="sensor-signal" d="M420 60H345"/>
+              <path class="sensor-arrow" d="M347 55L340 60L347 65Z"/>
+              <path class="control-signal" d="M285 106V140H72V219"/>
+              {% if route == 'routeb' %}
+              <g id="{{ route }}-hmi" class="hmi-computer">
+                <rect class="equipment-housing" x="20" y="16" width="130" height="84" rx="6"/>
+                <rect class="hmi-screen" x="27" y="23" width="116" height="69" rx="3"/>
+                <path class="monitor-stand" d="M85 100V111M60 112H110"/>
+                <text class="device-title" x="85" y="41">HMI</text>
+                <text id="{{ route }}-hmi-state" class="device-reading" x="85" y="61">NO DATA</text>
+                <text id="{{ route }}-hmi-pump" x="85" y="80">PUMP --</text>
+                <text x="85" y="130">PASSWORD ONLY</text>
+              </g>
+              {% else %}
+              <rect class="direct-access" x="20" y="40" width="130" height="40" rx="7"/>
+              <text class="device-title" x="85" y="65">MODBUS</text>
+              <text x="85" y="100">DIRECT ACCESS</text>
+              {% endif %}
+              <g class="plc-device">
+                <rect class="equipment-housing" x="230" y="16" width="110" height="90" rx="5"/>
+                <circle class="plc-led" cx="247" cy="33" r="4"/>
+                <text class="device-title" x="285" y="42">PLC</text>
+                <text id="{{ route }}-plc-state" x="285" y="65">NO DATA</text>
+                <path class="plc-ports" d="M245 83V97M265 83V97M285 83V97M305 83V97M325 83V97"/>
+              </g>
+              <g class="sensor-device">
+                <rect class="sensor-housing" x="420" y="16" width="150" height="90" rx="12"/>
+                <text class="device-title" x="495" y="39">SENSORS</text>
+                <text id="{{ route }}-sensor-level" x="495" y="63">LEVEL -- %</text>
+                <text id="{{ route }}-sensor-chlorine" x="495" y="85">CL -- mg/L</text>
+              </g>
+              <g transform="translate(0 155)">
+              <path class="drive-shaft" d="M124 100H180"/>
+              <path class="water-pipe" d="M260 100H350V38H440"/>
+              <path class="flow-water" d="M260 100H350V38H440"/>
+              <rect class="equipment-housing" x="20" y="64" width="104" height="72" rx="14"/>
+              <g class="motor-rotor rotor">
+                <circle cx="72" cy="100" r="23"/>
+                <path d="M49 100H95M72 77V123"/>
+              </g>
+              <circle class="equipment-housing" cx="220" cy="100" r="40"/>
+              <g class="pump-rotor rotor">
+                <circle cx="220" cy="100" r="23"/>
+                <path d="M220 77L232 100L220 123L208 100ZM197 100H243"/>
+              </g>
+              <text x="72" y="170">MOTOR</text><text x="220" y="170">PUMP</text>
+              <g transform="translate(420 0)">
+                <rect class="tank-background" x="20" y="10" width="120" height="140" rx="8"/>
+                <rect id="{{ route }}-water" class="tank-water" x="21" y="149" width="118" height="0"/>
+                <text id="{{ route }}-level" class="tank-level" x="80" y="85">-- %</text>
+              </g>
+              <text x="500" y="170">STORAGE TANK</text>
+              </g>
+            </svg>
+            <p class="fine-print">{{ 'Command path: private worker to password-only HMI to PLC.' if route == 'routeb' else 'Command path: private worker directly to PLC over Modbus; no HMI login.' }} Sensors feed observed level and chlorine back to the PLC.</p>
+            <p id="{{ route }}-command-state" class="command-state" role="status">No control command selected.</p>
+            <p id="{{ route }}-plc-command" class="plc-command">No PLC write requested.</p>
+            <p id="{{ route }}-machinery-state" class="machinery-state" role="status">Animation paused / no live PLC observation</p>
+            <p class="fine-print">Command highlights show application status, not captured network packets. Simulated motor and flow follow the observed PLC pump output, not separate motor or flow feedback. Tank height follows the observed level; inflow must exceed consumption for the level to rise.</p>
+            <div class="process-numbers"><div><span class="field-label">CHLORINE RESIDUAL</span><strong id="{{ route }}-chlorine">-- mg/L</strong></div><div><span class="field-label">PUMP</span><strong id="{{ route }}-pump">--</strong></div><div><span class="field-label">PLC DOSE SETPOINT</span><strong id="{{ route }}-dose">--</strong></div></div>
+          </div>
+          <div class="live-charts">
+            <div><span class="field-label">Tank level / 0-100%</span><svg viewBox="0 0 320 100" role="img" aria-label="Observed tank level trend"><path id="{{ route }}-tank-trend" class="tank-trend"/></svg></div>
+            <div><span class="field-label">Chlorine residual / 0-5 mg/L</span><svg viewBox="0 0 320 100" role="img" aria-label="Observed chlorine residual trend"><path id="{{ route }}-chlorine-trend" class="chlorine-trend"/></svg></div>
+          </div>
+          <p class="fine-print">Last 120 worker observations; not a historical archive. Stale data is labelled, never animated as fresh.</p>
+          <div class="live-actions"><button class="button secondary" type="button" data-route="{{ route }}" data-action="pump-on" disabled>Pump override / 20 s</button><button class="button secondary" type="button" data-route="{{ route }}" data-action="chlorine-up" disabled>Dose 4.0 / 20 s</button></div>
+          <p class="fine-print">Every action requires confirmation. Changed setpoints are read back, held for 20 seconds, then restored. Physical water/chemical state does not instantly return to baseline.</p>
+          <pre id="{{ route }}-job" aria-live="polite">No live command selected.</pre>
+          <button class="button secondary" type="button" data-evidence="{{ route }}" disabled>Query Sentinel evidence</button>
+          <p id="{{ route }}-evidence">Queue acceptance is not execution, ingestion or an alert.</p>
+        </section>
+      {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+  </main>
+</body>
+</html>

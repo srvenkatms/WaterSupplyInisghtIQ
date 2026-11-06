@@ -1,0 +1,7 @@
+pymodbus==3.8.6
+azure-identity==1.19.0
+azure-monitor-ingestion==1.0.4
+flask==3.1.0
+gunicorn==23.0.0
+azure-storage-blob==12.24.0
+azure-storage-queue==12.12.0

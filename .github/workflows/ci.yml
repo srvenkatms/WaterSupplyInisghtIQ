@@ -1,0 +1,125 @@
+# DEP-04: validate every branch/PR; original-lab deployment requires explicit opt-in and approval.
+# Azure sign-in uses OpenID Connect federated credentials - no secrets stored.
+# Repository variables: SWULAB_ENABLE_DEPLOYMENT=true, AZURE_CLIENT_ID, AZURE_TENANT_ID,
+# AZURE_SUBSCRIPTION_ID, SWULAB_LOCATION. These are separate from CPI lifecycle variables.
+# Repository secret:    SWULAB_SSH_PUBLIC_KEY (a public key, kept as a secret only to avoid editing)
+name: swulab-ci
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bicep build and lint
+        run: |
+          az bicep install
+          az bicep build --file infra/main.bicep --stdout > /dev/null
+          az bicep lint --file infra/main.bicep
+          az bicep build-params --file infra/main.bicepparam --stdout > /dev/null
+        env:
+          SWULAB_SSH_PUBLIC_KEY: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPlaceholderKeyForBuildOnly ci
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Console session and stale-reading regressions
+        run: node --test harness/tests/console_frontend.test.cjs
+      - name: Generator and gateway tests
+        run: |
+          pip install -r generator/requirements.txt -r apps/requirements.txt -r harness/requirements.txt pytest
+          PYTHONPATH=generator python -m swugen.configuration --check
+          python -m pytest -q generator/tests apps/tests harness/tests
+      - name: Actual OpenPLC runtime integration
+        run: python -m pytest -q -m openplc apps/tests/test_openplc_runtime.py --junitxml=test-results/openplc-ci.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: openplc-runtime-evidence
+          path: test-results/openplc-ci.xml
+          if-no-files-found: ignore
+      - name: Shell script syntax
+        run: for f in scripts/*.sh; do bash -n "$f"; done
+
+  what-if:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && vars.AZURE_CLIENT_ID != ''
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: lab-plan
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: What-if
+        env:
+          SWULAB_SSH_PUBLIC_KEY: ${{ secrets.SWULAB_SSH_PUBLIC_KEY }}
+          SWULAB_LOCATION: ${{ vars.SWULAB_LOCATION }}
+          SWULAB_VM_SIZE: ${{ vars.SWULAB_VM_SIZE || 'Standard_B2s' }}
+          SWULAB_DEPLOY_OPERATOR: ${{ vars.SWULAB_DEPLOY_OPERATOR || 'false' }}
+          SWULAB_OWNER: ${{ vars.SWULAB_OWNER }}
+          SWULAB_BUDGET_AMOUNT: ${{ vars.SWULAB_BUDGET_AMOUNT }}
+          SWULAB_BUDGET_EMAILS: ${{ vars.SWULAB_BUDGET_EMAILS }}
+        run: |
+          export SWULAB_BUDGET_START_DATE="$(date +%Y-%m-01)"
+          az deployment sub what-if --location "${{ vars.SWULAB_LOCATION }}" \
+            --template-file infra/main.bicep --parameters infra/main.bicepparam
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.AZURE_CLIENT_ID != '' && vars.SWULAB_ENABLE_DEPLOYMENT == 'true'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: lab        # add required reviewers on this environment
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Deploy full lab and remove build egress
+        env:
+          SWULAB_SSH_PUBLIC_KEY: ${{ secrets.SWULAB_SSH_PUBLIC_KEY }}
+          SWULAB_LOCATION: ${{ vars.SWULAB_LOCATION }}
+          SWULAB_VM_SIZE: ${{ vars.SWULAB_VM_SIZE || 'Standard_B2s' }}
+          SWULAB_DEPLOY_OPERATOR: ${{ vars.SWULAB_DEPLOY_OPERATOR || 'false' }}
+          SWULAB_SSH_PRIVATE_KEY: ${{ secrets.SWULAB_SSH_PRIVATE_KEY }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          SWULAB_OWNER: ${{ vars.SWULAB_OWNER }}
+          SWULAB_BUDGET_AMOUNT: ${{ vars.SWULAB_BUDGET_AMOUNT }}
+          SWULAB_BUDGET_EMAILS: ${{ vars.SWULAB_BUDGET_EMAILS }}
+          SWULAB_TESTER_ID: ${{ vars.SWULAB_TESTER_ID }}
+          SWULAB_TESTER_TYPE: ServicePrincipal
+        run: |
+          pip install -r generator/requirements.txt
+          if [[ "$SWULAB_DEPLOY_OPERATOR" == true ]]; then
+            : "${SWULAB_SSH_PRIVATE_KEY:?Set the lab environment SSH private key secret for the operator}"
+            export SWULAB_SSH_PRIVATE_KEY_FILE="$RUNNER_TEMP/swulab-operator-key"
+            umask 077
+            printf '%s\n' "$SWULAB_SSH_PRIVATE_KEY" > "$SWULAB_SSH_PRIVATE_KEY_FILE"
+            unset SWULAB_SSH_PRIVATE_KEY
+            trap 'rm -f -- "$SWULAB_SSH_PRIVATE_KEY_FILE"' EXIT
+          fi
+          bash scripts/deploy.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lab-deployment-manifest
+          path: deployment-outputs.json

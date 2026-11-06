@@ -1,0 +1,41 @@
+[
+  { "name": "SimExposure_CL", "columns": [
+    { "name": "Source", "type": "string" }, { "name": "AssetIp", "type": "string" }, { "name": "Port", "type": "int" },
+    { "name": "Service", "type": "string" }, { "name": "Product", "type": "string" }, { "name": "Finding", "type": "string" },
+    { "name": "Severity", "type": "string" }, { "name": "FirstSeen", "type": "datetime" }, { "name": "Status", "type": "string" } ] },
+  { "name": "SimSignin_CL", "columns": [
+    { "name": "UserPrincipalName", "type": "string" }, { "name": "UserType", "type": "string" }, { "name": "AppDisplayName", "type": "string" },
+    { "name": "ResultType", "type": "string" }, { "name": "IPAddress", "type": "string" }, { "name": "Location", "type": "string" },
+    { "name": "DeviceId", "type": "string" }, { "name": "MfaResult", "type": "string" }, { "name": "RiskLevel", "type": "string" } ] },
+  { "name": "SimAudit_CL", "columns": [
+    { "name": "OperationName", "type": "string" }, { "name": "InitiatedBy", "type": "string" }, { "name": "TargetUser", "type": "string" },
+    { "name": "Result", "type": "string" } ] },
+  { "name": "SimAccessTraffic_CL", "columns": [
+    { "name": "UserPrincipalName", "type": "string" }, { "name": "DestinationApp", "type": "string" }, { "name": "SourceIp", "type": "string" },
+    { "name": "Location", "type": "string" }, { "name": "SessionStart", "type": "datetime" }, { "name": "SessionEnd", "type": "datetime" },
+    { "name": "Action", "type": "string" } ] },
+  { "name": "SimFirewall_CL", "columns": [
+    { "name": "DeviceAction", "type": "string" }, { "name": "SourceIP", "type": "string" }, { "name": "DestinationIP", "type": "string" },
+    { "name": "DestinationPort", "type": "int" }, { "name": "Protocol", "type": "string" }, { "name": "SourceZone", "type": "string" },
+    { "name": "DestinationZone", "type": "string" }, { "name": "RuleName", "type": "string" }, { "name": "Activity", "type": "string" } ] },
+  { "name": "SimEndpoint_CL", "columns": [
+    { "name": "DeviceName", "type": "string" }, { "name": "DeviceRole", "type": "string" }, { "name": "ActionType", "type": "string" },
+    { "name": "FileName", "type": "string" }, { "name": "ProcessCommandLine", "type": "string" }, { "name": "AccountName", "type": "string" },
+    { "name": "AlertTitle", "type": "string" }, { "name": "Severity", "type": "string" } ] },
+  { "name": "SimOtAlert_CL", "columns": [
+    { "name": "AlertType", "type": "string" }, { "name": "SourceIp", "type": "string" }, { "name": "DestinationIp", "type": "string" },
+    { "name": "Protocol", "type": "string" }, { "name": "Register", "type": "int" }, { "name": "Value", "type": "real" },
+    { "name": "Severity", "type": "string" } ] },
+  { "name": "SimProcess_CL", "columns": [
+    { "name": "SiteId", "type": "string" }, { "name": "Tag", "type": "string" }, { "name": "EventType", "type": "string" },
+    { "name": "OldValue", "type": "real" }, { "name": "NewValue", "type": "real" }, { "name": "Unit", "type": "string" },
+    { "name": "ChangedBy", "type": "string" }, { "name": "Limit", "type": "real" } ] },
+  { "name": "SimInventory_CL", "columns": [
+    { "name": "AssetId", "type": "string" }, { "name": "AssetType", "type": "string" }, { "name": "SiteId", "type": "string" },
+    { "name": "Model", "type": "string" }, { "name": "Firmware", "type": "string" }, { "name": "IpType", "type": "string" },
+    { "name": "LastSeen", "type": "datetime" } ] },
+  { "name": "SimAgentAction_CL", "columns": [
+    { "name": "AgentName", "type": "string" }, { "name": "Action", "type": "string" },
+    { "name": "Target", "type": "string" }, { "name": "ApprovedBy", "type": "string" },
+    { "name": "Result", "type": "string" } ] }
+]

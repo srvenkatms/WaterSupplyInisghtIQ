@@ -1,0 +1,176 @@
+{
+  "id": "utc",
+  "name": "Utility C",
+  "population": 9000,
+  "tier": "otvisibility",
+  "seed": 303,
+  "maintenanceWindows": [],
+  "backups": [
+    {"asset": "PLC-plant", "lastBackup": "2026-11-01"},
+    {"asset": "SCADA-config", "lastBackup": "2026-11-01"}
+  ],
+  "processSource": "model",
+  "otAlerts": true,
+  "domain": "utc.lab.example",
+  "devices": {
+    "office": "utc-office-pc",
+    "scada": "utc-scada-pc",
+    "officeIp": "10.10.0.20",
+    "scadaIp": "10.10.1.20",
+    "plcIp": "10.10.1.10",
+    "gatewayIp": "10.10.2.10"
+  },
+  "operators": [
+    {
+      "upn": "op1@utc.lab.example",
+      "onCallDays": [
+        1,
+        2
+      ],
+      "knownIps": [
+        "192.0.2.31"
+      ],
+      "location": "US-Rural"
+    },
+    {
+      "upn": "op2@utc.lab.example",
+      "onCallDays": [
+        3,
+        4
+      ],
+      "knownIps": [
+        "192.0.2.32"
+      ],
+      "location": "US-Rural"
+    },
+    {
+      "upn": "op3@utc.lab.example",
+      "onCallDays": [
+        0,
+        5,
+        6
+      ],
+      "knownIps": [
+        "192.0.2.33"
+      ],
+      "location": "US-Rural"
+    }
+  ],
+  "vendors": [
+    {
+      "upn": "integrator@vendor.lab.example",
+      "vendor": "SCADA integrator",
+      "days": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "hours": [
+        8,
+        17
+      ],
+      "knownIps": [
+        "198.51.100.20"
+      ],
+      "location": "US-Metro"
+    },
+    {
+      "upn": "plcvendor@vendor.lab.example",
+      "vendor": "PLC vendor",
+      "days": [
+        3
+      ],
+      "hours": [
+        9,
+        15
+      ],
+      "knownIps": [
+        "198.51.100.40"
+      ],
+      "location": "US-Metro"
+    },
+    {
+      "upn": "it@msp.lab.example",
+      "vendor": "IT provider",
+      "days": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "hours": [
+        7,
+        18
+      ],
+      "knownIps": [
+        "198.51.100.50"
+      ],
+      "location": "US-Metro"
+    }
+  ],
+  "leaver": {
+    "upn": "former.operator@utc.lab.example"
+  },
+  "sites": [
+    "plant",
+    "remote-1",
+    "remote-2",
+    "remote-3",
+    "remote-4",
+    "remote-5"
+  ],
+  "plant": {
+    "pumpLowSetpoint": 40.0,
+    "pumpHighSetpoint": 90.0,
+    "clDoseSetpoint": 1.2,
+    "fillRatePctPerMin": 1.0,
+    "baseDemandPctPerMin": 0.12,
+    "peakDemandPctPerMin": 0.4,
+    "residualGain": 0.9,
+    "residualTauMin": 20.0,
+    "initialLevelPct": 65.0
+  },
+  "safeLimits": {
+    "TankLevelPct": [
+      10,
+      95
+    ],
+    "ClResidual": [
+      0.2,
+      4.0
+    ],
+    "ClDoseSetpoint": [
+      0.5,
+      3.0
+    ],
+    "PumpLowSetpoint": [
+      20,
+      60
+    ],
+    "PumpHighSetpoint": [
+      50,
+      95
+    ]
+  },
+  "volumes": {
+    "signinsPerDay": [
+      20,
+      60
+    ],
+    "firewallDeniedPerDay": [
+      200,
+      2000
+    ],
+    "endpointPerDay": [
+      100,
+      400
+    ],
+    "accessSessionsPerDay": [
+      2,
+      6
+    ]
+  }
+}

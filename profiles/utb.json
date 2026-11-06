@@ -1,0 +1,120 @@
+{
+  "id": "utb",
+  "name": "Utility B",
+  "population": 900,
+  "tier": "baseline",
+  "seed": 202,
+  "maintenanceWindows": [],
+  "backups": [
+    {"asset": "PLC-plant", "lastBackup": "2026-11-01"},
+    {"asset": "SCADA-config", "lastBackup": "2026-11-01"}
+  ],
+  "processSource": "none",
+  "otAlerts": false,
+  "domain": "utb.lab.example",
+  "devices": {
+    "office": "utb-office-pc",
+    "scada": "utb-scada-pc",
+    "officeIp": "10.10.0.20",
+    "scadaIp": "10.10.1.20",
+    "plcIp": "10.10.1.10",
+    "gatewayIp": "10.10.2.10"
+  },
+  "operators": [
+    {
+      "upn": "op1@utb.lab.example",
+      "onCallDays": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "knownIps": [
+        "192.0.2.21"
+      ],
+      "location": "US-Rural"
+    }
+  ],
+  "vendors": [
+    {
+      "upn": "integrator@vendor.lab.example",
+      "vendor": "SCADA integrator",
+      "days": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "hours": [
+        8,
+        17
+      ],
+      "knownIps": [
+        "198.51.100.20"
+      ],
+      "location": "US-Metro"
+    }
+  ],
+  "leaver": {
+    "upn": "former.operator@utb.lab.example"
+  },
+  "sites": [
+    "plant",
+    "remote-1"
+  ],
+  "plant": {
+    "pumpLowSetpoint": 40.0,
+    "pumpHighSetpoint": 90.0,
+    "clDoseSetpoint": 1.2,
+    "fillRatePctPerMin": 1.0,
+    "baseDemandPctPerMin": 0.12,
+    "peakDemandPctPerMin": 0.4,
+    "residualGain": 0.9,
+    "residualTauMin": 20.0,
+    "initialLevelPct": 65.0
+  },
+  "safeLimits": {
+    "TankLevelPct": [
+      10,
+      95
+    ],
+    "ClResidual": [
+      0.2,
+      4.0
+    ],
+    "ClDoseSetpoint": [
+      0.5,
+      3.0
+    ],
+    "PumpLowSetpoint": [
+      20,
+      60
+    ],
+    "PumpHighSetpoint": [
+      50,
+      95
+    ]
+  },
+  "volumes": {
+    "signinsPerDay": [
+      20,
+      60
+    ],
+    "firewallDeniedPerDay": [
+      200,
+      2000
+    ],
+    "endpointPerDay": [
+      100,
+      400
+    ],
+    "accessSessionsPerDay": [
+      2,
+      6
+    ]
+  }
+}
