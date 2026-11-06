@@ -2,6 +2,10 @@
 
 This repository implements a test lab, not autonomous cyber defense or a production utility integration.
 
+The separate [Target physical architecture](target-architecture.md) describes the
+proposed Azure-hosted utility emulation and multi-agent service. It is a design,
+not a claim that Target resources or agents have been deployed.
+
 | Wider architecture surface | Level 1 implementation | Deferred work |
 |---|---|---|
 | Utility-side collection | Synthetic IT sources; actual OpenPLC/gateway for A; synthetic OT visibility for C | Production identity, endpoint, firewall and OT connectors |
