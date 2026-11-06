@@ -15,9 +15,17 @@ The design has two environments:
 - **Cloud service:** telemetry ingestion, security monitoring, evidence,
   operator guidance and four cooperating agents.
 
-The existing Route A and Route B deployments remain unchanged. The Target gets
-new resource groups, networks, identities and data destinations. Both existing
-routes represent the same simulated utility; they are not two different customers.
+The Target has **one secured architecture, not Route A and Route B**. All remote
+human access uses VPN with Entra ID and MFA; the Target portal, HMI, VMs and data
+services have no public application ingress. Existing comparison labs are outside
+the Target and remain unchanged. The Target gets new resource groups, networks,
+identities and data destinations.
+
+Interpretation of the access correction: "no open ports" means **no public
+application/OT ports**, not literally no network listeners. VPN gateways still
+need their required public VPN endpoints. Internal HTTPS, RDP and industrial
+protocol ports exist only on approved private paths. This is the conservative
+design assumption pending review of the user's abbreviated wording.
 
 PLC control remains local and operator-operated. Cloud agents cannot write PLC
 registers, operate the HMI, administer VMs or automatically isolate critical hosts.
@@ -42,34 +50,34 @@ flowchart TB
     end
     subgraph DMZ["Industrial DMZ - Purdue 3.5"]
       Relay["vm-tgt-relay<br/>Telemetry relay + log forwarder"]
-      Connector["vm-tgt-access<br/>Windows Application Proxy connector"]
     end
     Boundary["Azure Firewall + NSGs + route tables<br/>Approved conduits only"]
-    Bastion["Azure Bastion<br/>Human administration only"]
+    SiteVPN["Site VPN Gateway<br/>IPsec + BGP"]
     Operator -->|"Local HTTPS / named HMI session"| HMI
     HMI -->|"Allowlisted operator setpoint writes"| Plant
     Collector -->|"Read-only Modbus through proxy"| Plant
     HMI -->|"Audit export"| Collector
     Collector -->|"Authenticated HTTPS / buffered events"| Relay
     Relay --> Boundary
-    Connector -->|"Restricted HMI web access"| HMI
-    Bastion -->|"Approved RDP / SSH"| Operator
+    Boundary --> SiteVPN
   end
 
   subgraph Cloud["AZURE ENVIRONMENT B - monitoring and multi-agent platform"]
     Identity["Microsoft Entra ID<br/>MFA / Conditional Access / roles"]
-    AppProxy["Entra Application Proxy<br/>Protected remote HMI view"]
+    CloudVPN["Platform VPN Gateway<br/>Entra-authenticated P2S + site tunnel"]
+    DNS["Private DNS Resolver<br/>VPN-client name resolution"]
     Ingestion["Azure Monitor DCRs / DCE<br/>Private ingestion endpoints"]
     Signals["Per-utility Log Analytics + Sentinel<br/>Defender / identity connectors"]
-    Portal["Authenticated Target portal"]
+    Portal["Private authenticated Target portal"]
     API["Utility-scoped query and case API"]
     Agents["Four separate container apps<br/>Exposure Assessor / Operator Coach<br/>Monitoring Agent / Response Coordinator"]
     Models["Microsoft Foundry<br/>Model deployment + project"]
     Knowledge["Azure AI Search<br/>Approved utility runbooks"]
     State["Cosmos DB case state<br/>Blob evidence / Storage queues"]
     Observe["Application Insights / audit / health alerts"]
-    Identity --> Portal
-    Identity --> AppProxy
+    Identity -->|"MFA / user and group policy"| CloudVPN
+    CloudVPN -->|"Private HTTPS"| Portal
+    CloudVPN --> DNS
     Ingestion --> Signals
     Portal --> API
     Agents --> API
@@ -80,19 +88,18 @@ flowchart TB
     Agents --> Observe
   end
 
-  Human -->|"HTTPS + MFA"| Portal
-  Human -->|"Separate protected remote view"| AppProxy
-  Connector -->|"Outbound connector sessions"| AppProxy
-  Boundary -->|"Allowed private HTTPS ingestion"| Ingestion
+  Human -->|"Azure VPN Client / OpenVPN"| CloudVPN
+  SiteVPN <-->|"IPsec / IKEv2 + BGP"| CloudVPN
+  CloudVPN -->|"Allowed private HTTPS ingestion"| Ingestion
   Operator -.->|"Native agent telemetry via approved egress"| Signals
   API -->|"Approved notifications / escalation drafts"| Recipients["Utility contacts / designated state contacts / CISA"]
 ```
 
-This is a functional flow diagram, not a bypass around the firewall. Inter-zone
-and site-to-platform flows are enforced by the routing and allowlist in section 6.
-The App Proxy connector initiates its cloud connection; the diagram does not
-represent an inbound Internet connection to its VM. External communications to
-incident recipients require the approval policy in section 10.
+This is a functional flow diagram, not a bypass around the firewall. The VPN is
+bidirectional transport, not permission to control equipment. Inter-zone,
+VPN-client and site-to-platform flows are enforced by section 6. Human access to
+the operator desktop traverses the VPN and site firewall; it does not expose
+public RDP. External incident communications require section 10 approval.
 
 ## 3. Resource groups and network placement
 
@@ -102,9 +109,9 @@ reuse or change the separate original-lab account context.
 
 | Resource group | Purpose | Isolation |
 |---|---|---|
-| `rg-swutgt-u001-site` | Six utility-side VMs, site VNet, firewall, Bastion, NICs, disks and local collection | Emulated utility, not cloud-agent compute |
-| `rg-swutgt-u001-data` | Utility workspace, Sentinel, DCRs, DCE, monitoring private-link resources and utility-specific configuration | No mixing with Route A/B or synthetic baseline tables |
-| `rg-swutgt-platform` | Container Apps, Foundry, knowledge, case/evidence services, registry and platform VNet | Shared service code; utility-scoped data and authorization |
+| `rg-swutgt-u001-site` | Five utility-side VMs, site VNet/VPN gateway, firewall, NICs, disks and local collection | Emulated utility, not cloud-agent compute |
+| `rg-swutgt-u001-data` | Utility workspace, Sentinel, DCRs, DCE, monitoring private-link resources and utility-specific configuration | No mixing with comparison-lab or synthetic baseline tables |
+| `rg-swutgt-platform` | Container Apps, Foundry, knowledge, case/evidence services, registry, platform VNet/VPN gateway and private DNS resolver | Shared service code; utility-scoped data and authorization |
 
 These are proposed nonoverlapping address ranges, subject to inventory and policy
 validation before deployment. Subnet names, not guessed host addresses, are the
@@ -118,21 +125,41 @@ deployment contract; allocate and persist actual NIC/private-endpoint addresses.
 | `snet-supervisory` | `10.50.2.0/24` | HMI and Windows operator |
 | `snet-operations` | `10.50.3.0/24` | Read-only collector |
 | `snet-dmz` | `10.50.4.0/24` | Telemetry relay/log forwarder |
-| `snet-access` | `10.50.5.0/24` | Application Proxy connector; separate from telemetry relay |
-| Reserved administration subnet | `10.50.250.0/26` | Reserve for a dedicated `AzureBastionSubnet` if required |
+| Site `GatewaySubnet` | `10.50.254.0/27` | Site route-based VPN gateway |
 | Platform VNet | `10.60.0.0/16` | Cloud compute and private service endpoints |
 | `snet-containerapps` | `10.60.0.0/23` | Dedicated, delegated workload-profile environment subnet |
 | `snet-endpoints` | `10.60.2.0/24` | Data/model/registry private endpoints, with required endpoint network policies |
+| `snet-dns-inbound` | `10.60.3.0/27` | Dedicated private DNS resolver inbound endpoint subnet |
+| Platform `GatewaySubnet` | `10.60.254.0/27` | Platform route-based VPN gateway; P2S and IPsec connections |
+| P2S client pool | `10.250.0.0/24` | VPN client addresses, not a VNet subnet; validate client-network overlap |
 
-Peer only the new site and platform networks as needed for approved private
-ingestion. Peering is not an authorization boundary and is not transit routing.
-Do not peer the Target to Route A/B. Explicit NSG denies override Azure's
-otherwise permissive virtual-network defaults.
+Connect the site and platform VNets using a route-based VNet-to-VNet IPsec tunnel,
+emulating a real site's S2S VPN. Do not add a direct peering bypass. Use
+BGP-capable gateways, for example a supported `VpnGw1AZ` configuration, with
+distinct private ASNs and validated capacity. BGP and explicit client routes are
+needed for P2S clients to reach the remote site correctly.
 
-For cross-zone inspection, protected-subnet routes steer remote zone prefixes and
-approved platform endpoint prefixes through the firewall. Configure symmetric
-return routing on the endpoint subnet; verify effective routes and packet paths.
-Do not attach workload route tables to `AzureFirewallSubnet`.
+The platform gateway admits approved human users through OpenVPN and Entra ID
+with Conditional Access/MFA. Use the supported Microsoft-registered Azure VPN
+Client configuration, not the retiring manually registered client design.
+The site tunnel uses gateway/machine authentication and protected tunnel keys,
+not interactive MFA. Telemetry still authenticates independently with scoped
+workload identities over TLS inside the VPN.
+
+For cross-zone inspection, protected-subnet routes steer remote zone prefixes,
+the P2S client pool and approved platform endpoint prefixes through the site
+firewall, then the VPN.
+Keep endpoint return routes through the platform gateway. Configure supported,
+specific site-gateway routes for the protected site subnets through the firewall
+to preserve symmetric inspection. Verify effective routes and BGP/client routes.
+Do not put an NSG or a forced default route on `GatewaySubnet`, disable required
+gateway route propagation, or apply workload routes to `AzureFirewallSubnet`.
+
+The private DNS resolver supplies reachable DNS to VPN clients; configure its
+private address and private zones/suffixes in the supported client profile.
+Link required private DNS zones to the appropriate VNets. Private portal,
+Container Apps and service endpoint names must resolve only to approved private
+addresses. DNS access is private TCP/UDP 53 from approved sources.
 
 The Container Apps compute subnet has an explicit deny/null route for the site
 prefix, as well as outbound policy denying site access. Agents do not need a
@@ -140,7 +167,7 @@ network path to PLCs, HMI, SSH, RDP or the local relay.
 
 ## 4. Emulated on-premises inventory
 
-All six VMs have private NICs only. VM sizes below are starting capacity estimates,
+All five VMs have private NICs only. VM sizes below are starting capacity estimates,
 not a claim of available subscription quota or production sizing.
 
 | VM / component | OS and initial capacity | Software / purpose | Real versus simulated |
@@ -150,9 +177,13 @@ not a claim of available subscription quota or production sizing.
 | `vm-tgt-operator` | Windows Server 2022 Desktop Experience; about 2 vCPU / 8 GiB | Browser-based operator desktop, AMA and licensed endpoint protection | Genuine Windows/endpoint events; a server desktop emulates the workstation |
 | `vm-tgt-collector` | Supported Ubuntu; about 2 vCPU / 4 GiB | Read-only adapter, versioned tag mapping, quality checks, SQLite outbox | Actual reads of simulated process values |
 | `vm-tgt-relay` | Supported Ubuntu; about 2 vCPU / 4 GiB | Authenticated relay, durable outbox and CEF/Syslog forwarding | Actual transport/host logs; no invented vendor-firewall records |
-| `vm-tgt-access` | Windows Server 2022; about 2 vCPU / 8 GiB | Dedicated Entra Application Proxy connector | Actual protected remote-access path; not a PLC gateway |
 | Azure Firewall Standard + Firewall Policy | Managed Azure service | Stateful network/application rules, restricted egress and diagnostic logs | Genuine Azure firewall evidence representing the lab boundary, not a physical utility appliance |
-| Azure Bastion | Developer SKU for lab if region/policy support it | Portal-based human access without public VM RDP/SSH | Not an agent tool; alternate SKU/connectivity needs approval if Developer is unavailable |
+| Two Azure VPN Gateways | Supported route-based/BGP-capable SKU | Platform P2S entry and site-to-platform IPsec tunnel | Genuine VPN authentication, connection and tunnel evidence |
+
+No App Proxy connector VM or Bastion deployment is part of this design.
+Approved users reach the private operator desktop over VPN. OS/HMI authorization
+remains separate from VPN membership. An approved administration role may use
+private SSH/RDP; ordinary analysts and agents do not inherit that access.
 
 Plant containers share one VM for lab economy; this is not physical isolation
 between a real sensor, independent motor feedback and a PLC. Use separate container
@@ -179,9 +210,9 @@ networking, identity, evaluation and approval controls.
 | Cloud service / deployment unit | Initial design | Purpose |
 |---|---|---|
 | Microsoft Entra ID | Utility membership, application roles, MFA/Conditional Access, scoped workload identities | Human and service authentication |
-| Entra Application Proxy | Publish the approved HMI view through the dedicated connector | Protected human remote access, not an agent write path |
-| Azure Container Apps environment | One VNet-integrated workload-profile environment, Consumption profile | Common container hosting without Kubernetes administration |
-| `ca-swutgt-portal` | Entra-protected HTTPS ingress | Insights, evidence, coaching, cases and approvals; no Target PLC control buttons |
+| VPN Gateway + Private DNS Resolver | Entra-authenticated P2S entry, IPsec site link and private client DNS | All remote human and site-to-platform access uses the approved VPN paths |
+| Azure Container Apps environment | One internal VNet-integrated workload-profile environment, Consumption profile | No public environment ingress; common container hosting |
+| `ca-swutgt-portal` | Private HTTPS ingress reachable over VPN; Entra application authorization | Insights, evidence, coaching, cases and approvals; no Target PLC control buttons |
 | `ca-swutgt-u001-api` | Internal ingress; authenticated users/services; utility-scoped identity | Typed query tools, case changes, audit and evidence retrieval |
 | `ca-swutgt-assessor` | Queue-driven worker; no public ingress | Exposure Assessor |
 | `ca-swutgt-coach` | Queue-driven worker; no public ingress | Operator Coach |
@@ -206,11 +237,13 @@ Scheduled jobs are additional deployment units, not more specialist agents.
 The site-to-cloud network path exposes ingestion endpoints only, not the agent
 tool API or model endpoints.
 
+There is no public portal, public HMI, public agent API or App Proxy bypass.
 Private endpoints do not automatically privatize every service dependency.
-Entra, Defender, App Proxy and required Azure runtime/control-plane endpoints
-need documented, source-specific outbound allowances. The portal is the intended
-authenticated public application surface. No data service is made public merely
-to bypass a private-network error.
+Entra, Defender and required Azure runtime/control-plane endpoints still need
+documented, source-specific outbound allowances. This is not permission to
+expose a Target application. No data service is made public to bypass a
+private-network error. A supported VPN client and browser are access clients,
+not locally hosted lab servers; no client installation is performed by this design.
 
 ## 6. Allowed data and administration flows
 
@@ -218,6 +251,10 @@ Default-deny all other site, cross-zone and platform-to-site connections.
 
 | Source -> destination | Protocol | Authorization / restriction |
 |---|---|---|
+| Approved human -> platform VPN gateway | OpenVPN using the supported Azure VPN Client | Entra-authenticated user/group policy and Conditional Access/MFA; only VPN ingress is public |
+| Site VPN gateway <-> platform VPN gateway | IPsec/IKEv2, with BGP routing inside the tunnel | Protected machine/tunnel authentication; scoped routed prefixes, no interactive MFA |
+| VPN client -> private portal / DNS | HTTPS 443; private DNS TCP/UDP 53 | Authorized portal role, private DNS resolution and explicit VPN client routes |
+| VPN client -> operator desktop / authorized admin target | Private RDP 3389 / SSH 22 as approved | Separate named OS/VM roles; VPN membership alone is not login authorization |
 | Plant model -> OpenPLC input adapter | Host-local input frame | Existing validated sensor contract; not a cloud endpoint |
 | Windows operator -> local HMI | HTTPS 443 | Named local operator/session; local control role |
 | HMI -> PLC proxy | Modbus TCP 502 | Only approved setpoint words/function codes; never raw runtime/admin access |
@@ -225,19 +262,18 @@ Default-deny all other site, cross-zone and platform-to-site connections.
 | HMI -> collector audit receiver | Authenticated HTTPS 443 | Audit-only schema, source authentication and deduplication |
 | Collector -> DMZ relay | HTTPS 443 with authenticated source, preferably mTLS | Versioned telemetry only; no command or executable-response field |
 | Actual Syslog-capable sources -> relay | Syslog over TLS 6514 where supported | Per-source trust; declare and isolate any legacy transport exception |
-| Relay -> Monitor ingestion and utility state container | HTTPS 443 over approved private endpoints | Per-utility managed identity; DCR ingest and narrowly scoped snapshot/evidence permissions |
+| Relay -> Monitor ingestion and utility state container | HTTPS 443 through the site VPN to approved private endpoints | Per-utility managed identity; DCR ingest and narrowly scoped snapshot/evidence permissions |
 | AMA -> monitoring endpoints | Supported HTTPS 443 paths | Native agent conduit; required private configuration/DCE endpoints and identity access |
-| Endpoint agent / App Proxy connector -> Microsoft services | Vendor-required outbound endpoints | Source-specific egress rules; narrowly document additional certificate-validation ports if required |
-| App Proxy connector -> HMI | HTTPS 443 | Remote-view authorization; no access to PLC port 502 |
+| Endpoint agent -> Microsoft services | Vendor-required outbound endpoints | Source-specific egress rules; narrowly document additional certificate-validation ports if required |
 | Azure Firewall -> utility workspace | Azure diagnostic settings | Actual resource-specific logs; retain source-resource identity |
+| VPN gateways -> approved workspace | Azure diagnostic settings | Actual P2S, tunnel, gateway and route diagnostics as supported; retain gateway identity and correlate with Entra records |
 | Entra / Defender -> Sentinel | Supported service connectors | Approved tenant, permissions, licensing and selected event coverage |
 | Portal / agent -> utility API | Authenticated HTTPS | Server-issued utility scope, role, purpose and bounded task/query |
 | Agent -> Foundry inference | Authenticated HTTPS | Approved deployment, input limits and telemetry redaction |
 | Utility API -> data/search/case services | HTTPS / supported private SDK paths | Utility-scoped authorization; agents have no direct unrestricted data credentials |
-| Human -> Bastion -> authorized VM | HTTPS portal; controlled RDP 3389 / SSH 22 to private NIC | Separate operator/admin roles and audited named identities; no agent permission |
 
 The site relay is an application-level boundary for process/audit transfer.
-AMA, Defender and App Proxy have separate supported conduits; do not claim their
+AMA and Defender have separate supported conduits; do not claim their
 traffic is automatically transformed by the custom process relay. Preserve TLS
 validation; do not introduce TLS inspection that breaks vendor agents.
 
@@ -246,9 +282,13 @@ protocol permissions, ingress/egress rules, accepted message types and identitie
 Agents also receive no Azure VM Run Command, extension-management, deployment,
 role-assignment or general infrastructure permissions.
 
-Azure Firewall's proposed egress public IP is not a public PLC/HMI endpoint.
-It has no OT DNAT rule. Its IP and the authenticated portal must satisfy tenant
-policy; a denial is a deployment gate, not permission to weaken policy.
+The VPN gateways require public VPN endpoints; enable only the protocols required
+by their chosen P2S/IPsec configuration. "No open ports" does not mean these
+endpoints do not exist. Azure Firewall's proposed egress public IP is not a public
+application endpoint and has no inbound OT/application DNAT rule. These managed
+network IPs must satisfy tenant policy. If policy requires literally no public
+endpoint, a separately approved private-connectivity design is required; do not
+silently substitute a public application or weaken policy.
 
 ## 7. Local operation and MFA
 
@@ -257,15 +297,19 @@ The HMI records its authenticated local user/session with every requested change
 and the observed result. A setpoint acknowledgement is not proof of motor motion
 or physical water quality.
 
-Remote users enter through Entra preauthentication and Conditional Access/MFA.
-Initial remote HMI access is read-only and enforced by the HMI/backend role,
-not by hiding a button. It is separate from local control. The cloud agent portal
-contains no pump/chlorine execution endpoint.
+Remote users first establish the Entra-authenticated VPN with Conditional Access/
+MFA, then access the private cloud portal according to their application role.
+Operators may access the private Windows desktop through separately authorized
+RDP and operate its local HMI session. Analysts do not receive operator access.
+There is no direct public HMI access, alternate unprotected route, or public
+application URL that bypasses VPN. The cloud agent portal has no pump/chlorine
+execution endpoint.
 
-Do not claim App Proxy adds MFA to Modbus or every Windows/local HMI login.
-Preauthentication alone also does not establish per-command Entra identity:
-federation or validated session/identity mapping is needed for that attribution.
-Never trust an arbitrary client-supplied identity header.
+VPN MFA does not add authentication to Modbus or automatically prove the user of
+every local Windows/HMI session. Independently enforce named OS/application
+authorization and validate session/identity mappings for per-command attribution.
+Never trust an arbitrary client-supplied identity header. Automated collectors
+use scoped service identities; they do not stop for an MFA prompt per event.
 
 Local operation has a documented, restricted offline authentication procedure
 and audited emergency access. Remote access fails closed during identity-service
@@ -279,7 +323,7 @@ a provider-wide Azure outage can still stop the Azure-hosted "local" VMs.
 |---|---|---|
 | Process observation | Versioned schema: metric, value, unit, quality, observation time, asset and source | Actual PLC reads from the software plant; optional reviewed historian/OPC UA adapter later |
 | HMI control audit | User/session, action, tag, old/new value, command result and independent readback | Actual application audit, including explicit failed/interrupted outcomes |
-| Authentication / network / process / file | Native connector tables plus ASIM views where supported | Actual Windows, Entra, Defender and firewall records |
+| Authentication / network / process / file | Native connector tables plus ASIM views where supported | Actual Windows, Entra, Defender, firewall and VPN records; S2S tunnel events do not identify a human user |
 | Asset / identity context | Stable utility/site/asset IDs and time-aware address/account mappings | Approved inventory/configuration, not an LLM-invented relationship |
 | Agent / case audit | Task, utility, agent, tool, evidence references, approval, outcome and timestamps | Actual tool calls and case transitions |
 
@@ -367,7 +411,7 @@ identities, approved egress and escalation/sharing policy.
 | DMZ relay VM | Utility-owned or approved industrial gateway/relay |
 | Azure Firewall lab logs | Actual utility firewall/VPN CEF/Syslog/API connector |
 | Azure VM identity/AMA | Supported on-prem server/workstation identity and monitoring onboarding |
-| Private VNet peering | Approved routed VPN/private connection, or permitted outbound HTTPS ingestion |
+| Azure site VPN gateway and IPsec tunnel | Real utility VPN appliance and approved site-to-platform VPN; same scoped TLS ingestion above it |
 
 Purdue provides placement; IEC 62443 risk-based zones/conduits provide boundaries.
 OPC UA/SensorThings concepts can inform process semantics, ASIM normalizes
@@ -379,32 +423,37 @@ for every utility.
 
 This is a complete logical/physical reference design, not an approved Azure bill
 or a claim that every SKU is available. The lab starts with one emulated utility,
-six VMs, two VNets, one firewall, six Container Apps and bounded scheduled jobs.
+five VMs, two VNets, two VPN gateways, one firewall, private DNS resolver,
+six Container Apps and bounded scheduled jobs.
 It is not a high-availability production deployment.
 
 Budget before deployment for Windows licensing/endpoint protection, VM disks,
-Azure Firewall, private-link-capable registry/search tiers, model tokens and
+VPN gateways, private DNS resolver, Azure Firewall, private-link-capable
+registry/search tiers, model tokens and
 telemetry retention. Scale idle agent workers to zero where trigger support
 permits; cap replicas, execution time, tool calls and token budgets.
 
-Deallocating VMs does not stop charges for managed firewall, search, registry,
-disks, private endpoints or retention. Target-specific lifecycle automation must
+Deallocating VMs does not stop charges for VPN gateways, DNS resolver, managed
+firewall, search, registry, disks, private endpoints or retention. Target-specific
+lifecycle automation must
 drain work, preserve evidence and support an explicitly approved managed-service
-teardown/recreation strategy. Do not extend existing Route A/B stop scripts by
+teardown/recreation strategy. Do not extend existing comparison-lab stop scripts by
 guessing the new resource inventory.
 
 Before provisioning, verify subscription/tenant, budget, regional SKU/model
-capacity, address overlap, policy, private DNS/endpoint routing, MFA licensing,
-server endpoint entitlements and Bastion availability/access requirements.
-Existing policies, accounts and Route A/B resources must not be changed as a
+capacity, address overlap including VPN client networks, policy, VPN/BGP/client
+routes, private DNS/endpoint routing, MFA licensing, supported VPN clients and
+server endpoint entitlements.
+Existing policies, accounts and comparison-lab resources must not be changed as a
 fallback. No live utility, malware or public OT exposure is required for testing.
 
 | Proof required | Acceptance evidence |
 |---|---|
 | Local control independence | Stop cloud ingestion/agents; local HMI/PLC loop continues; UI reports cloud/feed loss honestly |
-| Network enforcement | Denied public access; allowed read/HMI paths; actual rejected collector writes and agent-to-site connections |
+| Network enforcement | Off-network clients cannot reach private portal/HMI/VM/data endpoints without VPN; only required public VPN ingress; allowed private read/HMI paths; rejected collector writes and agent-to-site connections |
 | Genuine collection | Source events and receipt times from Windows, Linux, Entra, endpoint protection and firewall; clear process simulation labels |
-| Identity and MFA | Successful protected access, denied unauthorized access, backend-bypass denial and documented local/offline behavior |
+| Identity and MFA | VPN user/group restrictions and MFA success/failure; separate VM/app role denial; no public/App Proxy/peering bypass; documented local/offline behavior |
+| VPN and DNS | Client routes and private name resolution; BGP/return-path proof; tunnel failure queues telemetry and does not stop local control |
 | Process interpretation | Known units/scaling, high/low/rate/stale/quality cases and no invented human attribution |
 | Agent safety | Negative permission tests, bounded tools, grounded guidance, injection-resistant authorization and no PLC/admin/containment tool |
 | Utility isolation | Utility 002 cannot query utility 001's logs, cases, documents or evidence; approved aggregation is separate |
@@ -422,8 +471,8 @@ and isolation proof last. No infrastructure is provisioned by this document.
 - [ISA/IEC 62443 series](https://www.isa.org/standards-and-publications/isa-standards/isa-iec-62443-series-of-standards)
 - [Azure Container Apps VNet requirements](https://learn.microsoft.com/en-us/azure/container-apps/custom-virtual-networks)
 - [Azure Firewall](https://learn.microsoft.com/en-us/azure/firewall/overview)
-- [Azure Bastion deployment and Developer SKU](https://learn.microsoft.com/en-us/azure/bastion/quickstart-host-portal)
-- [Entra Application Proxy](https://learn.microsoft.com/en-us/entra/identity/app-proxy/overview-what-is-app-proxy)
+- [Entra-authenticated P2S VPN using the Microsoft-registered client](https://learn.microsoft.com/en-us/azure/vpn-gateway/point-to-site-entra-gateway)
+- [P2S routing across VPN-connected VNets](https://learn.microsoft.com/en-us/azure/vpn-gateway/vpn-gateway-about-point-to-site-routing)
 - [Azure Monitor Logs Ingestion API](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/logs-ingestion-api-overview)
 - [Microsoft Sentinel ASIM](https://learn.microsoft.com/en-us/azure/sentinel/normalization)
 - [OGC SensorThings API](https://www.ogc.org/standards/sensorthings/)
