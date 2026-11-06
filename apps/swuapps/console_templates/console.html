@@ -200,6 +200,12 @@
           <p class="fine-print">Last 120 worker observations; not a historical archive. Stale data is labelled, never animated as fresh.</p>
           <div class="live-actions"><button class="button secondary" type="button" data-route="{{ route }}" data-action="pump-on" disabled>Pump override / 20 s</button><button class="button secondary" type="button" data-route="{{ route }}" data-action="chlorine-up" disabled>Dose 4.0 / 20 s</button></div>
           <p class="fine-print">Every action requires confirmation. Changed setpoints are read back, held for 20 seconds, then restored. Physical water/chemical state does not instantly return to baseline.</p>
+          <details id="{{ route }}-trace-panel" class="protocol-panel">
+            <summary>Raw PLC commands / responses</summary>
+            <p id="{{ route }}-trace-state" role="status">No control command selected.</p>
+            <p class="fine-print">Actual application transport bytes, not a network packet capture. TX socket acceptance is not PLC acknowledgement. FC06 echoes the write; subsequent FC03 reads confirm the state. Register addresses are zero-based: PumpOverride is address 13; raw 100 means 1.00. Authentication, cookies and login payloads are never included. HTTPS entries show application payloads, not decrypted TLS packets.</p>
+            <pre id="{{ route }}-protocol-trace" tabindex="0" aria-label="Captured PLC command and response bytes">Actual sent/received bytes will appear here when the worker reports them.</pre>
+          </details>
           <pre id="{{ route }}-job" aria-live="polite">No live command selected.</pre>
           <button class="button secondary" type="button" data-evidence="{{ route }}" disabled>Query Sentinel evidence</button>
           <p id="{{ route }}-evidence">Queue acceptance is not execution, ingestion or an alert.</p>

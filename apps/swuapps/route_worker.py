@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import deque
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import http.cookiejar
 import json
@@ -18,9 +19,9 @@ import uuid
 from azure.identity import ManagedIdentityCredential
 from azure.storage.blob import ContainerClient
 from azure.storage.queue import QueueClient
-from pymodbus.client import ModbusTcpClient
 from pymodbus.exceptions import ModbusException
 
+from .protocol_trace import ControlTrace, TracedModbusClient as ModbusTcpClient
 from .registers import MAP, READ_COUNT, READ_START, encode, from_block
 
 ACTIONS = {"pump-on": {"PumpOverride": 1.0}, "chlorine-up": {"ClDoseSetpoint": 4.0}}
@@ -48,6 +49,14 @@ def validate_job(job: dict, route: str) -> None:
 class DirectPlc:
     def __init__(self, host: str):
         self.client = ModbusTcpClient(host, timeout=3, retries=0)
+
+    @property
+    def trace(self):
+        return self.client.control_trace
+
+    @trace.setter
+    def trace(self, value):
+        self.client.control_trace = value
 
     def read(self) -> dict:
         for attempt in range(2):
@@ -82,14 +91,48 @@ class PasswordHmi:
         self.opener = build_opener(HTTPCookieProcessor(http.cookiejar.CookieJar()),
                                   HTTPSHandler(context=ssl.create_default_context(cafile=str(ca))))
         self.csrf = None
+        self.trace = None
+
+    def record_response(self, path: str, status: int, document: dict) -> dict:
+        remote = document.pop("_plcTrace", None)
+        if remote is not None:
+            self.trace.import_hmi(remote)
+        else:
+            self.trace.append({"protocol": "HTTPS HMI", "channel": "worker-to-hmi", "direction": "INFO",
+                               "note": "The HMI did not supply PLC bytes; downstream traffic is not inferred."})
+        allowed = {*MAP, "tag", "value", "written", "error"}
+        self.trace.append({"protocol": "HTTPS HMI", "channel": "worker-to-hmi", "direction": "RX",
+                           "path": path, "status": status,
+                           "body": {key: value for key, value in document.items() if key in allowed},
+                           "note": "Application payload; TLS, authentication and cookie headers are omitted."})
+        return document
 
     def request(self, path: str, body: dict | None = None) -> dict:
         headers = {"Content-Type": "application/json"}
         if self.csrf:
             headers["X-SWU-CSRF"] = self.csrf
-        with self.opener.open(Request(self.url + path, headers=headers,
-                                    data=json.dumps(body).encode() if body is not None else None), timeout=10) as response:
-            return json.load(response)
+        traced = self.trace is not None and path in ("/api/values", "/api/setpoint")
+        if traced:
+            headers["X-SWU-PLC-Trace"] = "1"
+            self.trace.append({"protocol": "HTTPS HMI", "channel": "worker-to-hmi", "direction": "TX",
+                               "method": "POST" if body is not None else "GET", "path": path,
+                               "body": body, "note": "Authentication and cookie headers are omitted."})
+        try:
+            with self.opener.open(Request(self.url + path, headers=headers,
+                                         data=json.dumps(body).encode() if body is not None else None), timeout=10) as response:
+                document = json.load(response)
+                return self.record_response(path, response.status, document) if traced else document
+        except HTTPError as error:
+            if traced:
+                content = error.read()
+                try:
+                    document = json.loads(content)
+                except ValueError:
+                    self.trace.append({"protocol": "HTTPS HMI", "channel": "worker-to-hmi", "direction": "RX",
+                                       "path": path, "status": error.code, "note": "Non-JSON error body omitted."})
+                else:
+                    self.record_response(path, error.code, document)
+            raise
 
     def login(self) -> None:
         self.csrf = self.request("/api/session")["csrf"]
@@ -128,11 +171,24 @@ class Runner:
         self.last_snapshot = 0.0
         self.active = None
         self.startup_recovery = True
+        self.trace = None
+
+    @contextmanager
+    def capture(self, job: dict, previous: dict | None = None):
+        self.trace = ControlTrace(job["runId"], previous)
+        self.client.trace = self.trace
+        try:
+            yield
+        finally:
+            self.client.trace = None
+            self.trace = None
 
     def publish(self, name: str, document: dict) -> None:
         self.container.upload_blob(name, json.dumps(document), overwrite=True)
 
     def save_result(self, result: dict) -> None:
+        if self.trace is not None:
+            result["protocolTrace"] = self.trace.document()
         with self.db:
             self.db.execute("UPDATE jobs SET result=? WHERE id=?",
                             (json.dumps(result), result["runId"]))
@@ -165,8 +221,12 @@ class Runner:
         return values
 
     def restore(self, job: dict, baseline: dict) -> None:
+        if self.trace is not None:
+            self.trace.phase = "restore-write"
         for tag, value in baseline.items():
             self.client.write(tag, value)
+        if self.trace is not None:
+            self.trace.phase = "restore-readback"
         time.sleep(1)
         observed = self.snapshot(force=True)
         if any(abs(observed[tag] - value) > 0.005 for tag, value in baseline.items()):
@@ -180,25 +240,35 @@ class Runner:
             result = json.loads(saved) if saved else {
                 **job, "baseline": json.loads(baseline) if baseline else {},
                 "changes": ACTIONS[job["action"]], "durationSeconds": DURATION}
-            self.active = identity
-            if baseline:
-                self.restore(job, json.loads(baseline))
-            previous_error = result.get("error")
-            result.update(stage="interrupted-restored", restoredAt=now(),
-                          recoveryReason="startup" if self.startup_recovery else "unfinished-action",
-                          error=(f"{previous_error} " if previous_error else "") +
-                          "An unfinished action was recovered; its baseline was restored without replaying the action.")
-            self.save_result(result)
-            self.db.execute("UPDATE jobs SET finished=1 WHERE id=?", (identity,))
-            self.db.commit()
-            if self.active == identity:
-                self.active = None
+            with self.capture(job, result.get("protocolTrace")):
+                self.active = identity
+                try:
+                    if baseline:
+                        self.restore(job, json.loads(baseline))
+                finally:
+                    result["protocolTrace"] = self.trace.document()
+                    with self.db:
+                        self.db.execute("UPDATE jobs SET result=? WHERE id=?", (json.dumps(result), identity))
+                previous_error = result.get("error")
+                result.update(stage="interrupted-restored", restoredAt=now(),
+                              recoveryReason="startup" if self.startup_recovery else "unfinished-action",
+                              error=(f"{previous_error} " if previous_error else "") +
+                              "An unfinished action was recovered; its baseline was restored without replaying the action.")
+                self.save_result(result)
+                self.db.execute("UPDATE jobs SET finished=1 WHERE id=?", (identity,))
+                self.db.commit()
+                if self.active == identity:
+                    self.active = None
         self.startup_recovery = False
 
     def execute(self, job: dict) -> None:
         validate_job(job, self.route)
         if self.db.execute("SELECT 1 FROM jobs WHERE id=?", (job["runId"],)).fetchone():
             return
+        with self.capture(job):
+            self.execute_captured(job)
+
+    def execute_captured(self, job: dict) -> None:
         changes = ACTIONS[job["action"]]
         before = self.snapshot()
         baseline = {tag: before[tag] for tag in changes}
@@ -213,8 +283,10 @@ class Runner:
         try:
             self.save_result(result)
             self.audit(job, "LabControlRequested", "Accepted", {"action": job["action"]})
+            self.trace.phase = "override-write"
             for tag, value in changes.items():
                 self.client.write(tag, value)
+            self.trace.phase = "override-readback"
             time.sleep(1)
             observed = self.snapshot(force=True)
             if any(abs(observed[tag] - value) > 0.005 for tag, value in changes.items()):
@@ -222,6 +294,7 @@ class Runner:
             result.update(stage="plc-observed", observedAt=now(), observed=observed)
             self.audit(job, "LabSetpointObserved", "Success", {"old": baseline, "new": changes})
             self.save_result(result)
+            self.trace.phase = "hold-read"
             deadline = time.monotonic() + DURATION
             while time.monotonic() < deadline:
                 time.sleep(1)
@@ -232,10 +305,17 @@ class Runner:
             result["error"] = failure
         finally:
             # Retain readback and failure details even if restoration must be recovered later.
+            result["protocolTrace"] = self.trace.document()
             with self.db:
                 self.db.execute("UPDATE jobs SET result=? WHERE id=?",
                                 (json.dumps(result), job["runId"]))
-            self.restore(job, baseline)
+            try:
+                self.restore(job, baseline)
+            finally:
+                result["protocolTrace"] = self.trace.document()
+                with self.db:
+                    self.db.execute("UPDATE jobs SET result=? WHERE id=?",
+                                    (json.dumps(result), job["runId"]))
             result.update(stage="failed-restored" if failure else "completed-restored",
                           restoredAt=now(), error=failure)
             self.save_result(result)

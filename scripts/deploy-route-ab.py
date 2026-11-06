@@ -124,11 +124,13 @@ def application_script(route: dict, machine: dict, state: dict, credentials: dic
     return script + "echo __SWU_RUNTIME_OK__\n"
 
 
-def control_repair_script(route: dict, machine: dict, state: dict) -> str:
+def control_repair_script(route: dict, machine: dict, state: dict, *, protocol_trace: bool = False) -> str:
     role = machine["name"]
-    if role not in ("vm-uta-plc", "vm-uta-attack"):
-        raise ValueError("Control repair only replaces the proxy and fixed-action runner")
-    modules = ("modbus_proxy.py", "route_worker.py")
+    allowed = ("vm-uta-hmi", "vm-uta-attack") if protocol_trace else ("vm-uta-plc", "vm-uta-attack")
+    if role not in allowed:
+        raise ValueError("Offline publication only replaces the selected application roles")
+    modules = (("hmi.py", "route_worker.py", "protocol_trace.py") if protocol_trace else
+               ("modbus_proxy.py", "route_worker.py", "protocol_trace.py"))
     sources = {name: (ROOT / "apps" / "swuapps" / name).read_bytes() for name in modules}
     digest = hashlib.sha256(b"".join(sources.values())).hexdigest()
     image = f"swu-apps-control:{digest[:16]}"
@@ -136,7 +138,7 @@ def control_repair_script(route: dict, machine: dict, state: dict) -> str:
     for name, content in sources.items():
         script += private_file(f"/opt/swu/src/swuapps/{name}", content.decode())
     script += private_file("/opt/swu/control-repair.Dockerfile",
-                          "FROM swu-apps\nCOPY swuapps/modbus_proxy.py swuapps/route_worker.py /app/swuapps/\n")
+                          "FROM swu-apps\nCOPY " + " ".join(f"swuapps/{name}" for name in modules) + " /app/swuapps/\n")
     script += (f"docker build --network none --pull=false -q -t {image} "
                "-f /opt/swu/control-repair.Dockerfile /opt/swu/src\n")
     ips = {vm["name"]: vm["ip"] for vm in route["machines"]}
@@ -151,6 +153,15 @@ def control_repair_script(route: dict, machine: dict, state: dict) -> str:
                      f"-e SWU_ROUTE={route['id']} -e SWU_STORAGE_ACCOUNT={state['storageAccountName']} "
                      f"-e SWU_PLC_HOST={ips['vm-uta-plc']} -e SWU_HMI_URL=https://{ips['vm-uta-hmi']}:1881 "
                      f"{image} python -m swuapps.route_worker")
+    elif role == "vm-uta-hmi":
+        name = "swu-hmi"
+        environment = f"--network host -e SWU_PLC_HOST={ips['vm-uta-plc']} "
+        tls = ""
+        if route["id"] == "routeb":
+            environment = "--network host --env-file /opt/swu/private/hmi.env -v /opt/swu/private:/private:ro "
+            tls = "--certfile /private/hmi.crt --keyfile /private/hmi.key "
+        arguments = (f"{environment}{image} gunicorn --bind 0.0.0.0:1881 --workers 1 --threads 4 "
+                     f"{tls}swuapps.hmi:app")
     else:
         name = "swu-proxy"
         writers = f"{ips['vm-uta-plc']},{ips['vm-uta-hmi']}"
@@ -302,28 +313,35 @@ def main():
     parser.add_argument("--azure-config-dir", type=Path, required=True)
     parser.add_argument("--ssh-public-key", type=Path)
     parser.add_argument("--owner", required=True)
-    parser.add_argument("--repair-control-path", action="store_true",
+    updates = parser.add_mutually_exclusive_group()
+    updates.add_argument("--repair-control-path", action="store_true",
                         help="Offline image update of existing proxies/runners only; preserve credentials and network policy")
+    updates.add_argument("--publish-protocol-trace", action="store_true",
+                         help="Offline image update of existing HMI/runners; preserve private HMI credentials and TLS")
     args = parser.parse_args()
     publisher = Publisher(json.loads(STATE.read_text()), args.azure_config_dir, args.owner)
     publisher.context()
-    if args.repair_control_path:
+    if args.repair_control_path or args.publish_protocol_trace:
         if not publisher.state.get("runtimeDeployed"):
             raise RuntimeError("Control repair requires the existing deployed runtime")
-        for role in ("vm-uta-attack", "vm-uta-plc"):
+        roles = ("vm-uta-hmi", "vm-uta-attack") if args.publish_protocol_trace else ("vm-uta-attack", "vm-uta-plc")
+        for role in roles:
             tasks = [(route, machine) for route in publisher.state["routes"]
                      for machine in route["machines"] if machine["name"] == role]
             with ThreadPoolExecutor(max_workers=2) as pool:
                 list(pool.map(lambda task: publisher.extension(
-                    task[1], control_repair_script(task[0], task[1], publisher.state)), tasks))
-        publisher.state["controlRepair"] = {
+                    task[1], control_repair_script(task[0], task[1], publisher.state,
+                                                  protocol_trace=args.publish_protocol_trace)), tasks))
+        modules = (("hmi.py", "route_worker.py", "protocol_trace.py") if args.publish_protocol_trace else
+                   ("route_worker.py", "modbus_proxy.py", "protocol_trace.py"))
+        publisher.state["protocolTracePublication" if args.publish_protocol_trace else "controlRepair"] = {
             "publishedAt": datetime.now(timezone.utc).isoformat(),
             "sourceSha256": {name: hashlib.sha256((ROOT / "apps" / "swuapps" / name).read_bytes()).hexdigest()
-                             for name in ("route_worker.py", "modbus_proxy.py")},
+                             for name in modules},
             "state": "validation-required",
         }
         publisher.persist()
-        print("Control transport repair deployed; live readback/restoration verification is still required.", flush=True)
+        print("Offline application update deployed; live protocol/readback/restoration verification is still required.", flush=True)
         return
     if args.ssh_public_key is None:
         parser.error("--ssh-public-key is required for a full runtime publication")

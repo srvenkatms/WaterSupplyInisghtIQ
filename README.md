@@ -43,6 +43,10 @@ dose-change/readback/restoration workflows and Sentinel lab-action audit
 ingestion were verified on 2026-11-06. The actual rendered UI's pump controls
 also completed and restored on both routes. This is not seven-day/formal
 scenario acceptance or proof of correlated alerts or native Target feeds.
+New control runs also expose a **Raw PLC commands / responses** panel:
+actual Modbus TX/RX hex and decoded register fields, including acknowledgement,
+readback and baseline restoration. Route B separates the HMI application
+exchange from its downstream PLC traffic; credentials are excluded.
 
 ## Stop and restart Route A/B
 

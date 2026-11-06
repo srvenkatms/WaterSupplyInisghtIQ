@@ -19,6 +19,7 @@
 @media(prefers-reduced-motion:reduce){.command-line,.sensor-signal{animation:none!important}}
 @media(max-width:650px){.plant-schematic .device-title{font-size:18px}.plant-schematic .device-reading{font-size:15px}}
 .plc-command{font:12px/1.8 Consolas,monospace;color:#c7d7e3;background:#0b1824;border-left:3px solid #526c7c;padding:10px 12px;overflow-wrap:anywhere}
+.protocol-panel{min-width:0;margin:16px 0;padding:12px;border:1px solid var(--line);border-radius:7px;background:#0b1824}.protocol-panel summary{cursor:pointer;color:var(--teal);font-weight:600}.protocol-panel p{margin:12px 0}.live-route .protocol-panel pre{max-height:360px;min-width:0;font-size:11px;line-height:1.7}
 @media(max-width:1100px){.live-grid{grid-template-columns:1fr}}
 @media(min-width:1500px){.admin-grid{grid-template-columns:minmax(0,1fr) 320px}.card{padding:30px}.view{padding-top:45px}}
 @media(max-width:1100px){.sidebar{width:195px;padding:30px 15px}main{margin-left:195px}.view{padding:25px}.topbar{padding:0 25px}.admin-grid{grid-template-columns:1fr}.context-column{display:grid;grid-template-columns:1fr 1fr;gap:20px}.context-column .card{margin:0}.context-column .compact{grid-column:1/-1}.summary-grid{grid-template-columns:1fr}}

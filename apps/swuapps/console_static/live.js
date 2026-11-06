@@ -8,6 +8,35 @@
   const el = (route, name) => document.getElementById(`${route}-${name}`);
   const actions = (route) => document.querySelectorAll(`[data-route="${route}"]`);
 
+  function protocolTrace(route, state) {
+    const trace = state?.protocolTrace;
+    const events = trace?.events || [];
+    const terminal = ["completed-restored", "failed-restored", "interrupted-restored", "expired-unobserved"].includes(state?.stage);
+    el(route, "trace-state").textContent = !state ? "No control command selected." :
+      !trace ? "No byte trace has been reported for this run. Older commands are not reconstructed." :
+      !events.length ? (terminal ? "No transport bytes were captured for this run." :
+        "Waiting for actual transport bytes; queue acceptance is not a PLC acknowledgement.") :
+      `${events.length} captured transport events for run ${state.runId}.` +
+        (trace.droppedEvents ? ` TRUNCATED: ${trace.droppedEvents} additional events were not retained.` : "");
+    el(route, "protocol-trace").textContent = events.length ? events.map(event => {
+      const heading = `#${event.sequence} ${event.at} / ${event.phase}\n` +
+        `${event.direction} / ${event.protocol} / ${event.channel}` +
+        (event.status !== undefined ? ` / ${event.status}` : "");
+      if (event.protocol === "Modbus TCP") {
+        return heading + (event.hex ? `\nHEX: ${event.hex}` : "") +
+          (event.sentBytes !== undefined && event.sentBytes !== null ?
+            `\nSocket accepted ${event.sentBytes} of ${event.byteCount} bytes.` : "") +
+          (event.frames?.length ? `\nDECODED: ${JSON.stringify(event.frames)}` :
+            (event.hex ? "\nRaw stream chunk; no complete Modbus frame decoded from this chunk." : "")) +
+          (event.errorType ? `\n${event.operation}: ${event.errorType}; no response is inferred.` : "") +
+          (event.chunkTruncated ? "\nTRUNCATED transport chunk." : "");
+      }
+      return heading + `\n${event.method || ""} ${event.path || ""}`.trimEnd() +
+        (event.body !== undefined ? `\nPAYLOAD: ${JSON.stringify(event.body)}` : "") +
+        (event.note ? `\n${event.note}` : "");
+    }).join("\n\n") : "Actual sent/received bytes will appear here when the worker reports them.";
+  }
+
   function command(route, result) {
     if (result) {
       const previous = commandStates.get(route);
@@ -15,6 +44,7 @@
         {...previous, ...result} : result);
     }
     const state = commandStates.get(route);
+    protocolTrace(route, state);
     const stages = {
       idle: ["idle", "No control command selected.", "READY"],
       sending: ["pending", "Sending request / PLC change not confirmed.", "SENDING"],
@@ -93,7 +123,8 @@
     if (!id) return;
     const result = await api(`/api/live/commands/${route}/${id}`);
     if (runs.get(route) !== id) return;
-    el(route, "job").textContent = JSON.stringify(result, null, 2);
+    const {protocolTrace: captured, ...execution} = result;
+    el(route, "job").textContent = JSON.stringify(execution, null, 2);
     command(route, result);
     if (["completed-restored", "failed-restored", "interrupted-restored", "expired-unobserved"].includes(result.stage)) {
       active.delete(route);
@@ -157,6 +188,7 @@
       if (!window.confirm(`${route === "routea" ? "Route A" : "Route B"}: change an actual lab PLC setpoint for 20 seconds, then restore it?`)) return;
       active.add(route);
       runs.delete(route);
+      el(route, "trace-panel").open = true;
       command(route, {stage: "sending", action: button.dataset.action});
       actions(route).forEach((action) => { action.disabled = true; });
       try {

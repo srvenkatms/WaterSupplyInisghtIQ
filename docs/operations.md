@@ -343,6 +343,39 @@ The readable command panel names the requested write (`PumpOverride = 1` or
 restore target. Restoration is labelled verified only after the worker reports a
 restored terminal stage. These are engineering tag values, not raw Modbus wire
 register words, and the panel is not an arbitrary command editor.
+The separate **Raw PLC commands / responses** panel opens when an action is
+confirmed. It shows actual per-run Modbus TCP transport bytes (hex), timestamps,
+TX/RX directions, transaction/unit IDs, function codes, zero-based addresses and
+raw register values, including baseline reads, the override, subsequent
+readback, hold reads and baseline restoration. Pump override uses FC06 at
+address 13 with raw 100 for engineering value 1; FC03 reads supply independent
+state readback. An FC06 echo acknowledges a register write request, not the
+physical pump/motor state. Socket-accepted TX bytes alone are not a PLC response.
+
+Route A captures the private worker's direct PLC transport. Route B captures
+credential-free HTTPS method/path/payload/status plus the HMI's actual downstream
+PLC transport, returned only on explicitly traced authenticated HMI requests.
+Login/session payloads, passwords, CSRF, cookies and authentication headers are
+never recorded. HTTPS entries are application payloads, not raw TLS packets.
+The byte hook wraps the pinned synchronous client's real send/receive methods;
+its advertised packet hook alone does not capture receives in pymodbus 3.8.6.
+Tracing neither changes bytes nor introduces automatic write retries.
+
+This is application-transport capture, not an IP/TCP packet sniffer. A received
+stream chunk can contain partial or multiple Modbus frames; undecoded chunks
+remain raw bytes rather than fabricated complete frames. Traces are bounded to
+512 events and 4,096 bytes per chunk; truncation is explicitly labelled.
+Results are saved with the durable per-run journal/blob. Recovery appends actual
+restoration traffic to the same run; idle polling and later commands are not
+mixed into it. Older commands without captured traces are never reconstructed.
+
+For an existing runtime, publish the HMI/runner instrumentation offline with
+`scripts\deploy-route-ab.py --azure-config-dir <isolated-CPI-config> --owner <approved-CPI-owner> --publish-protocol-trace`,
+then publish/verify the Route A/B console with `scripts\deploy-console.py --route-ab`.
+The runtime update uses cached VM images, retains the existing private HMI
+credentials/TLS files and leaves OpenPLC, proxies and network policy unchanged.
+Live command/readback/restoration and actual nonempty traces on both routes
+must be verified before marking publication complete.
 Failed, interrupted, expired and uncertain outcomes are explicit, not successful
 animations. Sensor/command traffic animation pauses on stale or unavailable
 observations and respects reduced motion; pump motion remains driven only by

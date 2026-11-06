@@ -30,7 +30,7 @@ function page(fetch) {
   for (const route of ["routea", "routeb"]) {
     for (const name of ["card", "health", "reading-state", "plant", "machinery-state", "water", "level", "chlorine",
       "pump", "dose", "tank-trend", "chlorine-trend", "job", "evidence", "plc-state",
-      "sensor-level", "sensor-chlorine", "command-state", "plc-command"]) {
+      "sensor-level", "sensor-chlorine", "command-state", "plc-command", "trace-panel", "trace-state", "protocol-trace"]) {
       nodes.set(`${route}-${name}`, element());
     }
     actions[route] = ["pump-on", "chlorine-up"].map(action =>
@@ -68,6 +68,45 @@ function page(fetch) {
 }
 
 const drain = () => new Promise(resolve => setImmediate(resolve));
+
+for (const route of ["routea", "routeb"]) {
+  test(`${route} opens the raw trace on click and renders only reported bytes for that run`, async () => {
+    let result = {runId: "wire-run", action: "pump-on", stage: "queued"};
+    const view = page(async (url, options) => {
+      if (url === "/api/live/routes") return response(200, routes());
+      if (options.method === "POST") return response(202, result);
+      return response(200, result);
+    });
+    vm.runInContext(liveSource, view.context);
+    await drain();
+    await view.actions[route][0].listeners.click();
+    assert.equal(view.nodes.get(`${route}-trace-panel`).open, true);
+    assert.ok(!view.nodes.get(`${route}-protocol-trace`).textContent.includes("00 64"));
+    result = {...result, stage: "plc-observed", protocolTrace: {droppedEvents: 2, events: [
+      {sequence: 1, at: "2026-11-06T00:00:00Z", phase: "override-write", protocol: "Modbus TCP",
+        channel: route === "routea" ? "worker-to-plc" : "hmi-to-plc", direction: "TX",
+        status: "socket-accepted", hex: "00 01 00 00 00 06 01 06 00 0D 00 64",
+        frames: [{functionCode: 6, address: 13, rawValue: 100}]},
+      {sequence: 2, at: "2026-11-06T00:00:01Z", phase: "override-write", protocol: "Modbus TCP",
+        channel: route === "routea" ? "worker-to-plc" : "hmi-to-plc", direction: "RX",
+        status: "received", hex: "00 01 00 00 00 06 01 06 00 0D 00 64", frames: []},
+    ]}};
+    view.timers.shift()();
+    await drain();
+    const raw = view.nodes.get(`${route}-protocol-trace`).textContent;
+    assert.match(raw, /TX \/ Modbus TCP/);
+    assert.match(raw, /RX \/ Modbus TCP/);
+    assert.match(raw, /00 0D 00 64/);
+    assert.match(raw, /"address":13,"rawValue":100/);
+    assert.match(view.nodes.get(`${route}-trace-state`).textContent, /TRUNCATED: 2/);
+    assert.ok(!view.nodes.get(`${route}-job`).textContent.includes("protocolTrace"));
+    result = {runId: "older-no-trace", action: "pump-on", stage: "completed-restored"};
+    view.timers.shift()();
+    await drain();
+    assert.ok(!view.nodes.get(`${route}-protocol-trace`).textContent.includes("00 0D 00 64"));
+    assert.match(view.nodes.get(`${route}-trace-state`).textContent, /Older commands are not reconstructed/);
+  });
+}
 
 test("API keeps successful JSON, CSRF and same-origin manual redirects", async () => {
   let supplied;

@@ -7,11 +7,12 @@ import os
 import secrets
 from datetime import timedelta
 
-from flask import Flask, redirect, request, jsonify, abort, session
+from flask import Flask, redirect, request, jsonify, abort, session, g
 import logging
-from pymodbus.client import ModbusTcpClient
+from pymodbus.exceptions import ModbusException
 from werkzeug.security import check_password_hash
 
+from .protocol_trace import ControlTrace, TracedModbusClient as ModbusTcpClient
 from .registers import MAP, READ_COUNT, READ_START, SETPOINTS, encode, from_block
 
 app = Flask(__name__)
@@ -74,16 +75,30 @@ def login():
 
 
 def _client():
-    c = ModbusTcpClient(HOST, port=PORT)
+    c = ModbusTcpClient(HOST, port=PORT, timeout=3, retries=0)
+    if request.headers.get("X-SWU-PLC-Trace") == "1":
+        g.plc_trace = ControlTrace()
+        c.control_trace = g.plc_trace
+        c.trace_channel = "hmi-to-plc"
     if not c.connect():
         raise ConnectionError("HMI cannot connect to PLC")
     return c
 
 
 @app.errorhandler(ConnectionError)
+@app.errorhandler(ModbusException)
 def unavailable(error):
     logging.exception("HMI PLC operation failed")
     return jsonify(error=str(error)), 503
+
+
+@app.after_request
+def attach_plc_trace(response):
+    trace = getattr(g, "plc_trace", None)
+    if trace is not None and response.is_json:
+        body = response.get_json()
+        response.set_data(app.json.dumps({**body, "_plcTrace": trace.document()}))
+    return response
 
 
 @app.get("/api/values")
