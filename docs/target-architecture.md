@@ -171,26 +171,38 @@ flowchart TB
   Gateway["Edge Gateway"]
   Firewall["Utility Firewall"]
   SiteVPN["Site VPN Gateway"]
+  WindowsLogs["Windows Log Collection (AMA)"]
   Desktop --> HMI
   %% Layout-only link aligns the PCs; business-to-HMI access is prohibited.
   BusinessPC ~~~ HMI
   PLC -->|"Read-only telemetry"| Gateway
+  HMI -->|"Access / action audit"| Gateway
+  Desktop -->|"Windows access logs"| WindowsLogs
   Gateway --> Firewall
   Firewall --> SiteVPN
 
   subgraph Cloud["AZURE MONITORING PLATFORM"]
     CloudVPN["Azure VPN Gateway"]
-    Ingestion["Telemetry Ingestion"]
+    Ingestion["Azure Monitor Ingestion"]
+    Security["Security Connectors<br/>Entra / Defender / resource diagnostics"]
     Evidence["Evidence and Detection"]
     Agents["Four Agents"]
     Portal["Private Operator Portal"]
     CloudVPN --> Ingestion
     Ingestion --> Evidence
+    Security --> Evidence
     Evidence --> Agents
     Agents --> Portal
   end
 
   SiteVPN --> CloudVPN
+  WindowsLogs --> Ingestion
+  Desktop -->|"Endpoint evidence"| Security
+  BusinessPC -->|"Endpoint evidence"| Security
+  Entra -->|"Sign-in logs"| Security
+  Firewall -->|"Firewall diagnostics"| Security
+  SiteVPN -->|"VPN diagnostics"| Security
+  CloudVPN -->|"VPN diagnostics"| Security
   Portal --> Review["Operator Review and Approved Sharing"]
   linkStyle default stroke:#2563eb,stroke-width:2px;
 ```
@@ -211,12 +223,36 @@ supply motor power: commands act through a local starter/drive where applicable,
 omitted here for simplicity. The PLC-to-gateway arrow represents read responses,
 not equipment commands from Azure.
 
-Cloud-path arrows show the main telemetry-to-insight flow, not commands back to
-equipment or every network connection. The edge gateway reads equipment through the restricted
-proxy; local control stays local. Human portal access still uses VPN, Entra ID
-and MFA. Native security collection, the authorized tool API and supporting
-services remain in the component table; not all logs pass through the gateway.
-Sections 6 and 10 retain the network restrictions and sharing approvals.
+Cloud-path arrows show process and security evidence flowing toward insights,
+not commands back to equipment or every network connection. The Windows
+collection box is AMA software on the Server-based plant operations VM, not
+another VM. The security-connectors box groups planned native integrations;
+it is not one universal receiver or a new custom service.
+
+| Signal source | Examples of evidence | Proposed collection path |
+|---|---|---|
+| PLC/process | Tank level, chlorine measurements and pump state | Read-only edge gateway -> VPN -> Azure Monitor process ingestion |
+| HMI | Application sign-in, session, access and operator action/result | Authenticated HMI audit -> edge gateway -> VPN -> Azure Monitor audit ingestion |
+| Plant operations Windows VM | Selected successful/failed Windows logons, RDP access and enabled OS audit events | AMA + approved DCR/event selection -> supported private Monitor endpoints |
+| Plant and business endpoints | Endpoint alerts and selected process/file/network evidence | Supported Defender for Endpoint onboarding -> Defender XDR -> approved Sentinel connector/event coverage |
+| Microsoft Entra | Cloud sign-ins, MFA/Conditional Access outcomes and available identity-risk evidence | Entra service connector -> utility Sentinel workspace |
+| Utility firewall | Actual allowed/blocked network/application traffic records | Azure Firewall diagnostic settings in this lab -> workspace; a real appliance uses its supported CEF/Syslog/API connector and approved forwarder |
+| Site and platform VPN gateways | Connection, tunnel, gateway and supported route diagnostics | Azure diagnostic settings -> workspace; correlate human VPN access with Entra evidence |
+
+Entra sign-ins are cloud identity events; they do not replace Windows logon/RDP
+events or HMI sessions. Endpoint alerts do not imply every raw endpoint event is
+available: validate audit policy, agent/connector support, permissions, licensing
+and retention for each selected signal. The business PC and its endpoint feed
+remain real-site context, not an additional initial lab VM or an already onboarded
+endpoint. No Target signal collection is deployed by this document.
+
+Only process/HMI records use the drawn custom gateway path. Native AMA, Defender,
+Entra and Azure diagnostic collection retain their supported routes; the arrows
+do not imply all Microsoft endpoints become private or traverse the site VPN.
+Required source-specific outbound identity/endpoint dependencies remain allowed
+under section 6. Human portal access still uses VPN, Entra ID and MFA.
+The authorized tool API and supporting services remain in the component table;
+sections 6 and 10 retain the network restrictions and sharing approvals.
 
 ## 3. Resource groups and network placement
 
