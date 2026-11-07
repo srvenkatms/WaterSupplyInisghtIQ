@@ -144,103 +144,33 @@ uses separate services. IoT Hub remains optional, not an extra required layer.
 
 ```mermaid
 flowchart TB
-  Human["Named operator / analyst"]
-
-  subgraph Site["UTILITY / ON-PREMISES SIDE - Azure-emulated site"]
-    direction TB
-    subgraph Control["1 - Local process and control - Purdue 0/1"]
-      Plant["vm-tgt-plant<br/>Simulated tank / sensors / pump / motor<br/>Actual OpenPLC + protocol-enforcing proxy"]
-    end
-    subgraph Supervision["2 - Operator supervision - Purdue 2"]
-      Operator["vm-tgt-operator<br/>Windows operator desktop<br/>AMA + endpoint protection"]
-      HMI["vm-tgt-hmi<br/>Linux HMI + local audit"]
-    end
-    subgraph DMZ["3 - Edge collection and forwarding - industrial DMZ"]
-      Gateway["vm-tgt-gateway - ONE BOX<br/>Collector + relay services<br/>Read-only adapters / mappings / durable outbox<br/>Telemetry + supported log forwarding"]
-    end
-    subgraph SiteNetwork["4 - Site network protection and tunnel"]
-      Boundary["Azure Firewall Standard<br/>Firewall Policy + NSGs + inspected routes"]
-      SiteVPN["Site Azure VPN Gateway<br/>Machine-authenticated IPsec + BGP"]
-    end
-    Operator -->|"Local HTTPS / named HMI session"| HMI
-    HMI -->|"Allowlisted operator setpoint writes"| Plant
-    Plant -->|"Proxy-restricted read responses to gateway polling"| Gateway
-    HMI -->|"Authenticated audit export"| Gateway
-    Gateway -->|"Scoped HTTPS telemetry"| Boundary
-    Boundary -->|"Inspected, routed traffic"| SiteVPN
+  subgraph Site["UTILITY / ON-PREMISES"]
+    Equipment["Local Equipment and Control"]
+    Gateway["Edge Gateway"]
+    Firewall["Utility Firewall"]
+    SiteVPN["Site VPN Gateway"]
+    Equipment --> Gateway --> Firewall --> SiteVPN
   end
 
-  subgraph Cloud["AZURE CLOUD PLATFORM - private services, no process control"]
-    direction TB
-    subgraph Entry["5 - Private cloud entry and ingestion"]
-      CloudVPN["Platform Azure VPN Gateway<br/>Human P2S + site IPsec tunnel"]
-      DNS["Private DNS Resolver<br/>VPN-client name resolution"]
-      Ingestion["Azure Monitor private-link scope<br/>DCE / DCRs + private ingestion"]
-      Connectors["Native Entra / Defender connectors<br/>Selected security event coverage"]
-    end
-    subgraph Evidence["6 - Evidence, detection and knowledge"]
-      Signals["Per-utility Log Analytics + Sentinel<br/>Process/security records + deterministic alerts"]
-      State["Cosmos DB cases<br/>Blob evidence / Storage work and poison queues"]
-      Knowledge["Azure AI Search<br/>Approved utility runbooks"]
-    end
-    subgraph Reasoning["7 - Agent reasoning and authorized tools"]
-      API["ca-swutgt-u001-api<br/>Utility-scoped evidence/tools/cases"]
-      Agents["FOUR SEPARATE AGENT CONTAINER APPS<br/>ca-swutgt-assessor: Exposure Assessor<br/>ca-swutgt-coach: Operator Coach<br/>ca-swutgt-monitor: Monitoring Agent<br/>ca-swutgt-coordinator: Response Coordinator"]
-      Models["Microsoft Foundry<br/>Project + model inference"]
-    end
-    subgraph Experience["8 - Operator insights and coordination"]
-      Portal["ca-swutgt-portal<br/>Private findings / alerts / guidance / approvals"]
-      Approval["Authorized human approval<br/>Verified recipients and incident package"]
-    end
-    subgraph Foundations["CROSS-CUTTING CLOUD FOUNDATIONS"]
-      Identity["Microsoft Entra ID<br/>Human MFA / roles + scoped workload identities"]
-      Hosting["Internal Container Apps environment<br/>Private endpoints / ACR / Key Vault"]
-      Observe["Application Insights / Monitor / Workbooks<br/>Audit / health / Cost Management budgets"]
-    end
-    Identity -->|"MFA / user and group policy"| CloudVPN
-    Identity -.->|"Application roles"| Portal
-    CloudVPN -->|"Private HTTPS"| Portal
-    CloudVPN --> DNS
-    Ingestion --> Signals
-    Connectors --> Signals
-    Portal --> API
-    Agents -->|"Authorized tool requests"| API
-    API -->|"Scoped queries"| Signals
-    API -->|"Authorized retrieval"| Knowledge
-    API -->|"Cases / evidence / task state"| State
-    Agents -->|"Inference, not equipment commands"| Models
-    Agents -.->|"Redacted audit / health"| Observe
-    Hosting -.->|"Hosts portal, API and four agents"| Reasoning
-    API -->|"Findings / case results"| Portal
-    Portal --> Approval
+  subgraph Cloud["AZURE CLOUD"]
+    CloudVPN["Azure VPN Gateway"]
+    Ingestion["Telemetry Ingestion"]
+    Evidence["Evidence and Detection"]
+    Agents["Four Agents"]
+    Portal["Private Operator Portal"]
+    CloudVPN --> Ingestion --> Evidence --> Agents --> Portal
   end
 
-  Human -->|"Azure VPN Client / OpenVPN"| CloudVPN
-  SiteVPN <-->|"IPsec / IKEv2 + BGP"| CloudVPN
-  CloudVPN -->|"Allowed private HTTPS ingestion"| Ingestion
-  Operator -.->|"Native AMA telemetry on supported paths"| Ingestion
-  Operator -.->|"Endpoint evidence via Microsoft service"| Connectors
-  Boundary -.->|"Actual firewall diagnostics"| Signals
-  Approval -->|"Approved channel only"| Recipients["Utility / designated state contacts / CISA"]
-  Portal -.->|"Advice and alerts, NOT control"| Human
+  SiteVPN --> CloudVPN
+  Portal --> Review["Operator Review and Approved Sharing"]
 ```
 
-Solid arrows show application, data or authorized access flows; dotted arrows
-show selected audit/support/advice relationships. The gateway polls the
-plant-side proxy; the process-to-gateway arrow shows read responses, not a
-PLC-initiated cloud connection. Layer 7's Foundry node is model inference, not
-another agent-hosting platform. Layer grouping is functional: all six application
-containers use the same proposed internal Container Apps environment.
-
-This is a layered functional/physical diagram, not a bypass around the firewall. The VPN is
-bidirectional transport, not permission to control equipment. Inter-zone,
-VPN-client and site-to-platform flows are enforced by section 6. Human access to
-the operator desktop traverses the VPN and site firewall; it does not expose
-public RDP. External incident communications require section 10 approval.
-The site firewall also inspects approved inter-zone conduits; its placement in
-the telemetry chain does not mean local read/audit traffic bypasses it. Native
-AMA, endpoint and cloud diagnostics retain their supported collection paths;
-they are not all passed through or normalized by the edge gateway.
+Arrows show the main telemetry-to-insight flow, not equipment commands or every
+network connection. The edge gateway reads equipment through the restricted
+proxy; local control stays local. Human portal access still uses VPN, Entra ID
+and MFA. Native security collection, the authorized tool API and supporting
+services remain in the component table; not all logs pass through the gateway.
+Sections 6 and 10 retain the network restrictions and sharing approvals.
 
 ## 3. Resource groups and network placement
 
