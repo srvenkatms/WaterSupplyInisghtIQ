@@ -35,6 +35,9 @@ This design extends beyond the implemented Level 1 lab.
 
 **The operator controls; the collector reads; the relay forwards; Azure analyzes.**
 This view explains responsibilities rather than VM names, sizes or subnets.
+The collector and relay are two software services on **one physical edge gateway**.
+In the Azure-emulated site, that box is one VM named `vm-tgt-gateway`, not the
+managed VPN gateway.
 
 ```mermaid
 flowchart TB
@@ -43,8 +46,10 @@ flowchart TB
     LocalHMI["HMI - operator screen"]
     LocalPLC["PLC - local control logic"]
     Equipment["Tank / sensors / pump / motor"]
-    ReadCollector["Collector<br/>Reads and interprets PLC values"]
-    ForwardRelay["Relay<br/>Buffers and forwards reports"]
+    subgraph EdgeConcept["ONE EDGE GATEWAY BOX"]
+      ReadCollector["Collector service<br/>Reads and interprets PLC values"]
+      ForwardRelay["Relay service<br/>Buffers and forwards reports"]
+    end
     LocalSecurity["Windows / HMI / firewall logs<br/>Optional OT security sensor"]
     LocalOperator -->|"Operator actions"| LocalHMI
     LocalHMI -->|"Approved control requests"| LocalPLC
@@ -122,20 +127,16 @@ flowchart TB
       Operator["vm-tgt-operator<br/>Windows operator desktop<br/>AMA + endpoint protection"]
       HMI["vm-tgt-hmi<br/>Linux HMI + local audit"]
     end
-    subgraph Operations["Operations zone - Purdue 3"]
-      Collector["vm-tgt-collector<br/>Read-only protocol adapters<br/>Validated mappings + local outbox"]
-    end
     subgraph DMZ["Industrial DMZ - Purdue 3.5"]
-      Relay["vm-tgt-relay<br/>Telemetry relay + log forwarder"]
+      Gateway["vm-tgt-gateway - one box<br/>Collector + relay services<br/>Read-only adapters / mappings / durable outbox<br/>Telemetry + log forwarding"]
     end
     Boundary["Azure Firewall + NSGs + route tables<br/>Approved conduits only"]
     SiteVPN["Site VPN Gateway<br/>IPsec + BGP"]
     Operator -->|"Local HTTPS / named HMI session"| HMI
     HMI -->|"Allowlisted operator setpoint writes"| Plant
-    Collector -->|"Read-only Modbus through proxy"| Plant
-    HMI -->|"Audit export"| Collector
-    Collector -->|"Authenticated HTTPS / buffered events"| Relay
-    Relay --> Boundary
+    Gateway -->|"Read-only Modbus through proxy"| Plant
+    HMI -->|"Authenticated audit export"| Gateway
+    Gateway --> Boundary
     Boundary --> SiteVPN
   end
 
@@ -186,7 +187,7 @@ reuse or change the separate original-lab account context.
 
 | Resource group | Purpose | Isolation |
 |---|---|---|
-| `rg-swutgt-u001-site` | Five utility-side VMs, site VNet/VPN gateway, firewall, NICs, disks and local collection | Emulated utility, not cloud-agent compute |
+| `rg-swutgt-u001-site` | Four utility-side VMs, site VNet/VPN gateway, firewall, NICs, disks and local collection | Emulated utility, not cloud-agent compute |
 | `rg-swutgt-u001-data` | Utility workspace, Sentinel, DCRs, DCE, monitoring private-link resources and utility-specific configuration | No mixing with comparison-lab or synthetic baseline tables |
 | `rg-swutgt-platform` | Container Apps, Foundry, knowledge, case/evidence services, registry, platform VNet/VPN gateway and private DNS resolver | Shared service code; utility-scoped data and authorization |
 
@@ -200,8 +201,8 @@ deployment contract; allocate and persist actual NIC/private-endpoint addresses.
 | `AzureFirewallSubnet` | `10.50.0.0/26` | Managed site boundary firewall |
 | `snet-control` | `10.50.1.0/24` | Plant, OpenPLC and protocol proxy |
 | `snet-supervisory` | `10.50.2.0/24` | HMI and Windows operator |
-| `snet-operations` | `10.50.3.0/24` | Read-only collector |
-| `snet-dmz` | `10.50.4.0/24` | Telemetry relay/log forwarder |
+| `snet-operations` | `10.50.3.0/24` | Reserved for future utility operations; no initial VM |
+| `snet-dmz` | `10.50.4.0/24` | Combined edge gateway: collector and relay services |
 | Site `GatewaySubnet` | `10.50.254.0/27` | Site route-based VPN gateway |
 | Platform VNet | `10.60.0.0/16` | Cloud compute and private service endpoints |
 | `snet-containerapps` | `10.60.0.0/23` | Dedicated, delegated workload-profile environment subnet |
@@ -240,11 +241,11 @@ addresses. DNS access is private TCP/UDP 53 from approved sources.
 
 The Container Apps compute subnet has an explicit deny/null route for the site
 prefix, as well as outbound policy denying site access. Agents do not need a
-network path to PLCs, HMI, SSH, RDP or the local relay.
+network path to PLCs, HMI, SSH, RDP or the local edge gateway.
 
 ## 4. Emulated on-premises inventory
 
-All five VMs have private NICs only. VM sizes below are starting capacity estimates,
+All four VMs have private NICs only. VM sizes below are starting capacity estimates,
 not a claim of available subscription quota or production sizing.
 
 | VM / component | OS and initial capacity | Software / purpose | Real versus simulated |
@@ -252,10 +253,25 @@ not a claim of available subscription quota or production sizing.
 | `vm-tgt-plant` | Supported Ubuntu; about 2 vCPU / 4 GiB | Pinned OpenPLC, plant model and existing protocol-enforcing proxy | Actual software PLC; simulated tank, chlorine, sensors, motor and hydraulics |
 | `vm-tgt-hmi` | Supported Ubuntu; about 2 vCPU / 4 GiB | Existing HMI image, local TLS and extended user/session/action auditing | Actual application and Linux logs |
 | `vm-tgt-operator` | Windows Server 2022 Desktop Experience; about 2 vCPU / 8 GiB | Browser-based operator desktop, AMA and licensed endpoint protection | Genuine Windows/endpoint events; a server desktop emulates the workstation |
-| `vm-tgt-collector` | Supported Ubuntu; about 2 vCPU / 4 GiB | Read-only adapter, versioned tag mapping, quality checks, SQLite outbox | Actual reads of simulated process values |
-| `vm-tgt-relay` | Supported Ubuntu; about 2 vCPU / 4 GiB | Authenticated relay, durable outbox and CEF/Syslog forwarding | Actual transport/host logs; no invented vendor-firewall records |
+| `vm-tgt-gateway` | Supported Ubuntu; about 2 vCPU / 4 GiB, subject to combined-load sizing | Collector and relay as separate services: read-only adapters, versioned tag mapping, quality checks, durable SQLite outbox, authenticated telemetry and CEF/Syslog forwarding | Actual reads of simulated process values and actual transport/host logs; no invented vendor-firewall records |
 | Azure Firewall Standard + Firewall Policy | Managed Azure service | Stateful network/application rules, restricted egress and diagnostic logs | Genuine Azure firewall evidence representing the lab boundary, not a physical utility appliance |
 | Two Azure VPN Gateways | Supported route-based/BGP-capable SKU | Platform P2S entry and site-to-platform IPsec tunnel | Genuine VPN authentication, connection and tunnel evidence |
+
+The edge gateway is one physical box at a real utility and one VM in this lab.
+Its collector prepares records in a permission-controlled local outbox; its relay
+forwards them, with bounded retries and explicit delivery/freshness failures.
+Use separate OS service accounts and a host-local handoff. Shared-host services
+are not separate security zones: host compromise can reach both the permitted
+equipment-read path and cloud-ingestion path, including the VM's workload identity.
+
+Place the gateway on one private DMZ NIC, without IP forwarding, network bridging
+or public ingress. Permit only reviewed equipment reads, authenticated audit/log
+receivers and required outbound ingestion/agent dependencies. The separate
+plant-side proxy must reject gateway writes regardless of which gateway service
+initiates them. This intentionally trades the earlier collector/relay host
+separation for small-utility simplicity; retain separate hosts where a real
+utility's risk assessment requires a stronger boundary. Local control continues
+if the gateway fails, but monitoring becomes stale and must alert.
 
 No App Proxy connector VM or Bastion deployment is part of this design.
 Approved users reach the private operator desktop over VPN. OS/HMI authorization
@@ -335,11 +351,11 @@ Default-deny all other site, cross-zone and platform-to-site connections.
 | Plant model -> OpenPLC input adapter | Host-local input frame | Existing validated sensor contract; not a cloud endpoint |
 | Windows operator -> local HMI | HTTPS 443 | Named local operator/session; local control role |
 | HMI -> PLC proxy | Modbus TCP 502 | Only approved setpoint words/function codes; never raw runtime/admin access |
-| Collector -> PLC proxy | Modbus TCP 502 | Proxy-enforced FC3 snapshot reads only; explicit cross-level read conduit |
-| HMI -> collector audit receiver | Authenticated HTTPS 443 | Audit-only schema, source authentication and deduplication |
-| Collector -> DMZ relay | HTTPS 443 with authenticated source, preferably mTLS | Versioned telemetry only; no command or executable-response field |
-| Actual Syslog-capable sources -> relay | Syslog over TLS 6514 where supported | Per-source trust; declare and isolate any legacy transport exception |
-| Relay -> Monitor ingestion and utility state container | HTTPS 443 through the site VPN to approved private endpoints | Per-utility managed identity; DCR ingest and narrowly scoped snapshot/evidence permissions |
+| Edge gateway collector service -> PLC proxy | Modbus TCP 502 | Proxy-enforced FC3 snapshot reads only for the gateway host; explicit DMZ-to-control read conduit |
+| HMI -> edge gateway audit receiver | Authenticated HTTPS 443 | Audit-only schema, source authentication and deduplication |
+| Collector service -> relay service on the same gateway | Host-local handoff / durable outbox | Separate OS service accounts and permission-controlled records; versioned telemetry only, no command or executable-response field; not a network isolation boundary |
+| Actual Syslog-capable sources -> edge gateway log receiver | Syslog over TLS 6514 where supported | Per-source trust; declare and isolate any legacy transport exception |
+| Edge gateway relay service -> Monitor ingestion and utility state container | HTTPS 443 through the site VPN to approved private endpoints | Per-utility managed identity; DCR ingest and narrowly scoped snapshot/evidence permissions |
 | AMA -> monitoring endpoints | Supported HTTPS 443 paths | Native agent conduit; required private configuration/DCE endpoints and identity access |
 | Endpoint agent -> Microsoft services | Vendor-required outbound endpoints | Source-specific egress rules; narrowly document additional certificate-validation ports if required |
 | Azure Firewall -> utility workspace | Azure diagnostic settings | Actual resource-specific logs; retain source-resource identity |
@@ -349,9 +365,10 @@ Default-deny all other site, cross-zone and platform-to-site connections.
 | Agent -> Foundry inference | Authenticated HTTPS | Approved deployment, input limits and telemetry redaction |
 | Utility API -> data/search/case services | HTTPS / supported private SDK paths | Utility-scoped authorization; agents have no direct unrestricted data credentials |
 
-The site relay is an application-level boundary for process/audit transfer.
+The gateway validates process/audit transfer at the application level; its
+co-located collector and relay are not independent host/network boundaries.
 AMA and Defender have separate supported conduits; do not claim their
-traffic is automatically transformed by the custom process relay. Preserve TLS
+traffic is automatically transformed by the custom gateway services. Preserve TLS
 validation; do not introduce TLS inspection that breaks vendor agents.
 
 An outbound TLS session is not a data diode. Enforce no-control behavior in
@@ -485,7 +502,7 @@ identities, approved egress and escalation/sharing policy.
 | Plant VM / software sensors | Actual PLC/RTU, instrumentation and actuator feedback |
 | Linux HMI and Windows desktop | Existing supported HMI/operator estate |
 | Read-only Modbus adapter | Supported historian/OPC UA/vendor adapter; validate every tag mapping |
-| DMZ relay VM | Utility-owned or approved industrial gateway/relay |
+| Combined DMZ edge gateway VM | Utility-owned or approved industrial PC/appliance/server running collector and relay services on one box; separate hosts if required by site risk assessment |
 | Azure Firewall lab logs | Actual utility firewall/VPN CEF/Syslog/API connector |
 | Azure VM identity/AMA | Supported on-prem server/workstation identity and monitoring onboarding |
 | Azure site VPN gateway and IPsec tunnel | Real utility VPN appliance and approved site-to-platform VPN; same scoped TLS ingestion above it |
@@ -500,7 +517,7 @@ for every utility.
 
 This is a complete logical/physical reference design, not an approved Azure bill
 or a claim that every SKU is available. The lab starts with one emulated utility,
-five VMs, two VNets, two VPN gateways, one firewall, private DNS resolver,
+four VMs, two VNets, two VPN gateways, one firewall, private DNS resolver,
 six Container Apps and bounded scheduled jobs.
 It is not a high-availability production deployment.
 
@@ -527,10 +544,11 @@ fallback. No live utility, malware or public OT exposure is required for testing
 | Proof required | Acceptance evidence |
 |---|---|
 | Local control independence | Stop cloud ingestion/agents; local HMI/PLC loop continues; UI reports cloud/feed loss honestly |
-| Network enforcement | Off-network clients cannot reach private portal/HMI/VM/data endpoints without VPN; only required public VPN ingress; allowed private read/HMI paths; rejected collector writes and agent-to-site connections |
+| Network enforcement | Off-network clients cannot reach private portal/HMI/VM/data endpoints without VPN; only required public VPN ingress; allowed private read/HMI paths; rejected writes from either gateway service and rejected agent-to-site connections; no gateway forwarding/bridging |
 | Genuine collection | Source events and receipt times from Windows, Linux, Entra, endpoint protection and firewall; clear process simulation labels |
 | Identity and MFA | VPN user/group restrictions and MFA success/failure; separate VM/app role denial; no public/App Proxy/peering bypass; documented local/offline behavior |
 | VPN and DNS | Client routes and private name resolution; BGP/return-path proof; tunnel failure queues telemetry and does not stop local control |
+| Combined gateway reliability | Collector/relay service restarts and full gateway outage; durable pending records, bounded retries and deduplication after recovery; stale-feed alerts and uninterrupted local control |
 | Process interpretation | Known units/scaling, high/low/rate/stale/quality cases and no invented human attribution |
 | Agent safety | Negative permission tests, bounded tools, grounded guidance, injection-resistant authorization and no PLC/admin/containment tool |
 | Utility isolation | Utility 002 cannot query utility 001's logs, cases, documents or evidence; approved aggregation is separate |
