@@ -146,22 +146,26 @@ uses separate services. IoT Hub remains optional, not an extra required layer.
 ```mermaid
 flowchart TB
   subgraph Site["UTILITY / ON-PREMISES"]
+    subgraph Workstations["Operator Workstations - Separate OT and Business Access"]
+      direction LR
+      Desktop["Plant Operations PC<br/>HMI browser / approved plant software"]
+      BusinessPC["Business PC<br/>Email / office / non-operational work"]
+    end
     subgraph Equipment["Local Equipment and Control"]
       Tank["Water Tank"]
       Sensors["Water Sensors"]
       PLC["PLC / Local Controller"]
       Pump["Pump and Motor"]
-      Desktop["Plant Operations PC<br/>HMI browser / approved plant software"]
       HMI["HMI"]
       Tank --> Sensors --> PLC --> Pump
-      Desktop --> HMI --> PLC
-    end
-    subgraph Business["Business / IT Network"]
-      BusinessPC["Business PC<br/>Email / office / non-operational work"]
+      HMI --> PLC
     end
     Gateway["Edge Gateway"]
     Firewall["Utility Firewall"]
     SiteVPN["Site VPN Gateway"]
+    Desktop --> HMI
+    %% Layout-only link aligns the PCs; business-to-HMI access is prohibited.
+    BusinessPC ~~~ HMI
     PLC --> Gateway --> Firewall --> SiteVPN
   end
 
@@ -181,7 +185,9 @@ flowchart TB
   BusinessPC --> Entra
 ```
 
-The inner boxes are components, not extra VMs. In the lab, the tank, sensors
+The two PC boxes are peers for presentation, not a shared network/security zone.
+Only the plant operations PC has the HMI access path; business access stays
+separate. The inner boxes are components, not extra VMs. In the lab, the tank, sensors
 and pump/motor are simulated on the plant VM alongside actual OpenPLC; the HMI
 and plant operations PC use their existing proposed VMs. The business PC is
 real-site context, outside the initial four-VM lab inventory; this diagram does
