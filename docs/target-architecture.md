@@ -145,11 +145,20 @@ uses separate services. IoT Hub remains optional, not an extra required layer.
 ```mermaid
 flowchart TB
   subgraph Site["UTILITY / ON-PREMISES"]
-    Equipment["Local Equipment and Control"]
+    subgraph Equipment["Local Equipment and Control"]
+      Tank["Water Tank"]
+      Sensors["Water Sensors"]
+      PLC["PLC / Local Controller"]
+      Pump["Pump and Motor"]
+      Desktop["Operator Desktop"]
+      HMI["HMI"]
+      Tank --> Sensors --> PLC --> Pump
+      Desktop --> HMI --> PLC
+    end
     Gateway["Edge Gateway"]
     Firewall["Utility Firewall"]
     SiteVPN["Site VPN Gateway"]
-    Equipment --> Gateway --> Firewall --> SiteVPN
+    PLC --> Gateway --> Firewall --> SiteVPN
   end
 
   subgraph Cloud["AZURE CLOUD"]
@@ -164,6 +173,12 @@ flowchart TB
   SiteVPN --> CloudVPN
   Portal --> Review["Operator Review and Approved Sharing"]
 ```
+
+The inner boxes are components, not extra VMs. In the lab, the tank, sensors
+and pump/motor are simulated on the plant VM alongside actual OpenPLC; the HMI
+and operator desktop use their existing proposed VMs. The PLC-to-gateway arrow
+represents read responses, not equipment commands from Azure. Pump commands
+act through a local starter/drive where applicable, omitted here for simplicity.
 
 Arrows show the main telemetry-to-insight flow, not equipment commands or every
 network connection. The edge gateway reads equipment through the restricted
