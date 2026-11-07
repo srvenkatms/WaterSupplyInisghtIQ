@@ -157,7 +157,9 @@ flowchart TB
       PLC["PLC / Local Controller"]
       Pump["Pump and Motor"]
       HMI["HMI"]
-      Tank --> Sensors --> PLC --> Pump
+      Tank --> Sensors
+      Sensors -->|"Measurements"| PLC
+      PLC -->|"Control commands"| Pump
       HMI --> PLC
     end
     Gateway["Edge Gateway"]
@@ -193,11 +195,14 @@ and plant operations PC use their existing proposed VMs. The business PC is
 real-site context, outside the initial four-VM lab inventory; this diagram does
 not provision an extra workstation. The two PC-to-Entra arrows show planned
 sign-in flows, not plant-control permissions or completed onboarding.
-The PLC-to-gateway arrow represents read responses, not equipment commands from Azure. Pump commands
-act through a local starter/drive where applicable, omitted here for simplicity.
+Sensors send measurements, such as tank level, to the PLC. The PLC uses those
+inputs and local operator requests to issue pump control commands. It does not
+supply motor power: commands act through a local starter/drive where applicable,
+omitted here for simplicity. The PLC-to-gateway arrow represents read responses,
+not equipment commands from Azure.
 
-Arrows show the main telemetry-to-insight flow, not equipment commands or every
-network connection. The edge gateway reads equipment through the restricted
+Cloud-path arrows show the main telemetry-to-insight flow, not commands back to
+equipment or every network connection. The edge gateway reads equipment through the restricted
 proxy; local control stays local. Human portal access still uses VPN, Entra ID
 and MFA. Native security collection, the authorized tool API and supporting
 services remain in the component table; not all logs pass through the gateway.
