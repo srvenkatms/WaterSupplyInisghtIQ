@@ -145,48 +145,58 @@ uses separate services. IoT Hub remains optional, not an extra required layer.
 
 ```mermaid
 flowchart TB
-  subgraph Site["UTILITY / ON-PREMISES"]
+  subgraph Access["UTILITY PCs AND CLOUD SIGN-IN"]
     subgraph Workstations["Operator Workstations - Separate OT and Business Access"]
       direction LR
       Desktop["Plant Operations PC<br/>HMI browser / approved plant software"]
       BusinessPC["Business PC<br/>Email / office / non-operational work"]
     end
-    subgraph Equipment["Local Equipment and Control"]
-      Tank["Water Tank"]
-      Sensors["Water Sensors"]
-      PLC["PLC / Local Controller"]
-      Pump["Pump and Motor"]
-      HMI["HMI"]
-      Tank --> Sensors
-      Sensors -->|"Measurements"| PLC
-      PLC -->|"Control commands"| Pump
-      HMI --> PLC
-    end
-    Gateway["Edge Gateway"]
-    Firewall["Utility Firewall"]
-    SiteVPN["Site VPN Gateway"]
-    Desktop --> HMI
-    %% Layout-only link aligns the PCs; business-to-HMI access is prohibited.
-    BusinessPC ~~~ HMI
-    PLC --> Gateway --> Firewall --> SiteVPN
+    Entra["Microsoft Entra Sign-in (Cloud)"]
+    Desktop --> Entra
+    BusinessPC --> Entra
   end
 
-  subgraph Cloud["AZURE CLOUD"]
-    Entra["Microsoft Entra Sign-in"]
+  subgraph Equipment["UTILITY - Local Equipment and Control"]
+    Tank["Water Tank"]
+    Sensors["Water Sensors"]
+    PLC["PLC / Local Controller"]
+    Pump["Pump and Motor"]
+    HMI["HMI"]
+    Tank --> Sensors
+    Sensors -->|"Measurements"| PLC
+    PLC -->|"Control commands"| Pump
+    HMI --> PLC
+  end
+
+  Gateway["Edge Gateway"]
+  Firewall["Utility Firewall"]
+  SiteVPN["Site VPN Gateway"]
+  Desktop --> HMI
+  %% Layout-only link aligns the PCs; business-to-HMI access is prohibited.
+  BusinessPC ~~~ HMI
+  PLC -->|"Read-only telemetry"| Gateway
+  Gateway --> Firewall
+  Firewall --> SiteVPN
+
+  subgraph Cloud["AZURE MONITORING PLATFORM"]
     CloudVPN["Azure VPN Gateway"]
     Ingestion["Telemetry Ingestion"]
     Evidence["Evidence and Detection"]
     Agents["Four Agents"]
     Portal["Private Operator Portal"]
-    CloudVPN --> Ingestion --> Evidence --> Agents --> Portal
+    CloudVPN --> Ingestion
+    Ingestion --> Evidence
+    Evidence --> Agents
+    Agents --> Portal
   end
 
   SiteVPN --> CloudVPN
   Portal --> Review["Operator Review and Approved Sharing"]
-  Desktop --> Entra
-  BusinessPC --> Entra
+  linkStyle default stroke:#2563eb,stroke-width:2px;
 ```
 
+Entra is grouped near the PCs to keep both sign-in arrows short; it remains a
+cloud identity service, not a service hosted inside the utility network.
 The two PC boxes are peers for presentation, not a shared network/security zone.
 Only the plant operations PC has the HMI access path; business access stays
 separate. The inner boxes are components, not extra VMs. In the lab, the tank, sensors
