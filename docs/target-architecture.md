@@ -31,6 +31,83 @@ PLC control remains local and operator-operated. Cloud agents cannot write PLC
 registers, operate the HMI, administer VMs or automatically isolate critical hosts.
 This design extends beyond the implemented Level 1 lab.
 
+### Conceptual architecture: who reads, forwards, analyzes and controls
+
+**The operator controls; the collector reads; the relay forwards; Azure analyzes.**
+This view explains responsibilities rather than VM names, sizes or subnets.
+
+```mermaid
+flowchart TB
+  subgraph UtilityConcept["UTILITY SITE - emulated in Azure"]
+    LocalOperator["Local operator"]
+    LocalHMI["HMI - operator screen"]
+    LocalPLC["PLC - local control logic"]
+    Equipment["Tank / sensors / pump / motor"]
+    ReadCollector["Collector<br/>Reads and interprets PLC values"]
+    ForwardRelay["Relay<br/>Buffers and forwards reports"]
+    LocalSecurity["Windows / HMI / firewall logs<br/>Optional OT security sensor"]
+    LocalOperator -->|"Operator actions"| LocalHMI
+    LocalHMI -->|"Approved control requests"| LocalPLC
+    LocalPLC -->|"Local equipment control"| Equipment
+    Equipment -->|"Sensor measurements"| LocalPLC
+    LocalPLC -->|"Read-only observations"| ReadCollector
+    ReadCollector --> ForwardRelay
+  end
+
+  SiteConnection["Site-to-cloud VPN<br/>Telemetry uses scoped machine identities and TLS"]
+  RemoteHuman["Authorized operator / analyst"]
+  HumanConnection["Human-access VPN<br/>Entra ID + MFA"]
+  ForwardRelay -->|"Water reports"| SiteConnection
+  LocalSecurity -->|"Supported security collection paths"| SiteConnection
+  RemoteHuman --> HumanConnection
+
+  subgraph CloudConcept["AZURE CLOUD SERVICE - insights, not process control"]
+    WaterReceiver["Water/process data receiver<br/>IoT Hub optional for fleet messaging"]
+    SecurityReceiver["Security evidence<br/>Sentinel / Defender integrations"]
+    CloudSecurity["Entra / Defender cloud signals"]
+    EvidenceContext["Utility-scoped evidence and cases<br/>Separate schemas + asset context + approved runbooks"]
+    subgraph AgentConcept["FOUR COOPERATING AGENTS"]
+      Exposure["Exposure Assessor<br/>Find exposure and weak access"]
+      Coach["Operator Coach<br/>Explain approved next steps"]
+      Monitor["Monitoring Agent<br/>Investigate attack indicators"]
+      Coordinator["Response Coordinator<br/>Organize incident response"]
+    end
+    PrivatePortal["Private operator portal<br/>Findings / guidance / alerts / approvals"]
+    WaterReceiver --> EvidenceContext
+    SecurityReceiver --> EvidenceContext
+    CloudSecurity --> SecurityReceiver
+    EvidenceContext --> Exposure
+    EvidenceContext --> Coach
+    EvidenceContext --> Monitor
+    EvidenceContext --> Coordinator
+    Exposure --> PrivatePortal
+    Coach --> PrivatePortal
+    Monitor --> PrivatePortal
+    Coordinator --> PrivatePortal
+  end
+
+  SiteConnection -->|"Process stream"| WaterReceiver
+  SiteConnection -->|"Security stream"| SecurityReceiver
+  HumanConnection -->|"Authenticated private access"| PrivatePortal
+  PrivatePortal -.->|"Advice and alerts, not equipment commands"| LocalOperator
+  PrivatePortal --> Approval["Authorized human review and approval"]
+  Approval --> Contacts["Utility / designated state contacts / CISA"]
+```
+
+The two VPN boxes are different functions: people authenticate with Entra ID/MFA;
+the site's automated link authenticates gateways and workloads, without an MFA
+prompt for every message. The shared connection box denotes permitted transport,
+not a universal schema or a requirement to send security logs through IoT Hub.
+Native cloud security connectors do not originate from the PLC.
+
+IoT Hub and an OT security sensor are optional integration roles in this conceptual
+view, not newly selected or deployed resources. The base design still supports
+HTTPS process ingestion. An OT sensor needs validated traffic visibility; it is
+not another water sensor. The detailed inventory and restrictions follow below.
+
+No cloud agent arrow ends at the HMI, PLC or equipment. External sharing remains
+subject to verified recipients and case-specific authorization.
+
 ## 2. Physical deployment overview
 
 ```mermaid
