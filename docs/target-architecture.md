@@ -115,69 +115,132 @@ subject to verified recipients and case-specific authorization.
 
 ## 2. Physical deployment overview
 
+### 2.1 Layered physical architecture and components
+
+Read the numbered layers from utility equipment toward Azure insights.
+These are presentation layers, **not new Purdue levels or automatic security
+boundaries**. Purdue placement is shown only for the utility-side functions.
+Both environments run in Azure in this lab; the utility column describes where
+the corresponding component would run at a real site.
+
+| Layer | Architectural components | Utility/on-premises or cloud | Physical deployment in this lab |
+|---|---|---|---|
+| 1. Local process and control | Tank, sensors, pump/motor; PLC/RTU or other local controller; protocol-enforcing read boundary | Utility/on-premises; Purdue 0/1 | One `vm-tgt-plant`: simulated physical process, actual OpenPLC and proxy as software components; not separate physical devices |
+| 2. Operator supervision | HMI, named operator desktop, local audit, Windows AMA and endpoint protection | Utility/on-premises; Purdue 2 | `vm-tgt-hmi` and `vm-tgt-operator` in `snet-supervisory` |
+| 3. Edge collection and forwarding | Read-only adapters, validated mappings, collector service, local durable outbox, relay and supported log receiver | Utility/on-premises; industrial DMZ | One `vm-tgt-gateway` in `snet-dmz`; two services on one box, not a VPN router |
+| 4. Site network protection and tunnel | Firewall policy, NSGs, inspected routes and site VPN termination | Utility/on-premises boundary | Azure Firewall Standard and site Azure VPN Gateway; managed services, not extra utility VMs |
+| 5. Private cloud entry and ingestion | Platform VPN termination, private DNS, monitoring private-link scope, DCE/DCRs and native security connectors | Cloud | Platform Azure VPN Gateway, Private DNS Resolver and Azure Monitor ingestion resources; scoped private HTTPS paths |
+| 6. Evidence, detection and knowledge | Process/security records, deterministic detections, cases, evidence, work/poison queues and approved runbooks | Cloud | Utility Log Analytics/Sentinel, Cosmos DB, Blob/Queue Storage and Azure AI Search |
+| 7. Agent reasoning and authorized tools | Exposure Assessor, Operator Coach, Monitoring Agent, Response Coordinator; scoped query/case API; model inference | Cloud | Four agent Container Apps, `ca-swutgt-u001-api` and Foundry models; agents use the API for evidence/tools |
+| 8. Operator insights and coordination | Private portal, findings, alerts, guidance, approval and incident packages | Cloud, accessed by authorized people over VPN | `ca-swutgt-portal`; human-approved utility/state/CISA communication, not equipment control |
+| Cross-cutting foundations | Identity/MFA, workload roles, private endpoints/DNS, image supply, certificate custody, audit/health and budgets | Both, with cloud-managed services | Entra ID, managed identities, internal Container Apps environment, ACR, Key Vault, Application Insights/Monitor/Workbooks and Cost Management |
+
+**Physical count:** four utility VMs and six cloud Container Apps. The two VPN
+gateways and firewall are additional managed services, not included in the VM
+count. A real site's firewall may also terminate its VPN; this Azure emulation
+uses separate services. IoT Hub remains optional, not an extra required layer.
+
+### 2.2 Layered deployment diagram
+
 ```mermaid
 flowchart TB
   Human["Named operator / analyst"]
 
-  subgraph Site["AZURE ENVIRONMENT A - emulated on-premises utility"]
-    subgraph Control["Control zone - Purdue 0/1"]
-      Plant["vm-tgt-plant<br/>Plant model + actual OpenPLC<br/>Protocol-enforcing proxy"]
+  subgraph Site["UTILITY / ON-PREMISES SIDE - Azure-emulated site"]
+    direction TB
+    subgraph Control["1 - Local process and control - Purdue 0/1"]
+      Plant["vm-tgt-plant<br/>Simulated tank / sensors / pump / motor<br/>Actual OpenPLC + protocol-enforcing proxy"]
     end
-    subgraph Supervision["Supervisory zone - Purdue 2"]
+    subgraph Supervision["2 - Operator supervision - Purdue 2"]
       Operator["vm-tgt-operator<br/>Windows operator desktop<br/>AMA + endpoint protection"]
       HMI["vm-tgt-hmi<br/>Linux HMI + local audit"]
     end
-    subgraph DMZ["Industrial DMZ - Purdue 3.5"]
-      Gateway["vm-tgt-gateway - one box<br/>Collector + relay services<br/>Read-only adapters / mappings / durable outbox<br/>Telemetry + log forwarding"]
+    subgraph DMZ["3 - Edge collection and forwarding - industrial DMZ"]
+      Gateway["vm-tgt-gateway - ONE BOX<br/>Collector + relay services<br/>Read-only adapters / mappings / durable outbox<br/>Telemetry + supported log forwarding"]
     end
-    Boundary["Azure Firewall + NSGs + route tables<br/>Approved conduits only"]
-    SiteVPN["Site VPN Gateway<br/>IPsec + BGP"]
+    subgraph SiteNetwork["4 - Site network protection and tunnel"]
+      Boundary["Azure Firewall Standard<br/>Firewall Policy + NSGs + inspected routes"]
+      SiteVPN["Site Azure VPN Gateway<br/>Machine-authenticated IPsec + BGP"]
+    end
     Operator -->|"Local HTTPS / named HMI session"| HMI
     HMI -->|"Allowlisted operator setpoint writes"| Plant
-    Gateway -->|"Read-only Modbus through proxy"| Plant
+    Plant -->|"Proxy-restricted read responses to gateway polling"| Gateway
     HMI -->|"Authenticated audit export"| Gateway
-    Gateway --> Boundary
-    Boundary --> SiteVPN
+    Gateway -->|"Scoped HTTPS telemetry"| Boundary
+    Boundary -->|"Inspected, routed traffic"| SiteVPN
   end
 
-  subgraph Cloud["AZURE ENVIRONMENT B - monitoring and multi-agent platform"]
-    Identity["Microsoft Entra ID<br/>MFA / Conditional Access / roles"]
-    CloudVPN["Platform VPN Gateway<br/>Entra-authenticated P2S + site tunnel"]
-    DNS["Private DNS Resolver<br/>VPN-client name resolution"]
-    Ingestion["Azure Monitor DCRs / DCE<br/>Private ingestion endpoints"]
-    Signals["Per-utility Log Analytics + Sentinel<br/>Defender / identity connectors"]
-    Portal["Private authenticated Target portal"]
-    API["Utility-scoped query and case API"]
-    Agents["Four separate container apps<br/>Exposure Assessor / Operator Coach<br/>Monitoring Agent / Response Coordinator"]
-    Models["Microsoft Foundry<br/>Model deployment + project"]
-    Knowledge["Azure AI Search<br/>Approved utility runbooks"]
-    State["Cosmos DB case state<br/>Blob evidence / Storage queues"]
-    Observe["Application Insights / audit / health alerts"]
+  subgraph Cloud["AZURE CLOUD PLATFORM - private services, no process control"]
+    direction TB
+    subgraph Entry["5 - Private cloud entry and ingestion"]
+      CloudVPN["Platform Azure VPN Gateway<br/>Human P2S + site IPsec tunnel"]
+      DNS["Private DNS Resolver<br/>VPN-client name resolution"]
+      Ingestion["Azure Monitor private-link scope<br/>DCE / DCRs + private ingestion"]
+      Connectors["Native Entra / Defender connectors<br/>Selected security event coverage"]
+    end
+    subgraph Evidence["6 - Evidence, detection and knowledge"]
+      Signals["Per-utility Log Analytics + Sentinel<br/>Process/security records + deterministic alerts"]
+      State["Cosmos DB cases<br/>Blob evidence / Storage work and poison queues"]
+      Knowledge["Azure AI Search<br/>Approved utility runbooks"]
+    end
+    subgraph Reasoning["7 - Agent reasoning and authorized tools"]
+      API["ca-swutgt-u001-api<br/>Utility-scoped evidence/tools/cases"]
+      Agents["FOUR SEPARATE AGENT CONTAINER APPS<br/>ca-swutgt-assessor: Exposure Assessor<br/>ca-swutgt-coach: Operator Coach<br/>ca-swutgt-monitor: Monitoring Agent<br/>ca-swutgt-coordinator: Response Coordinator"]
+      Models["Microsoft Foundry<br/>Project + model inference"]
+    end
+    subgraph Experience["8 - Operator insights and coordination"]
+      Portal["ca-swutgt-portal<br/>Private findings / alerts / guidance / approvals"]
+      Approval["Authorized human approval<br/>Verified recipients and incident package"]
+    end
+    subgraph Foundations["CROSS-CUTTING CLOUD FOUNDATIONS"]
+      Identity["Microsoft Entra ID<br/>Human MFA / roles + scoped workload identities"]
+      Hosting["Internal Container Apps environment<br/>Private endpoints / ACR / Key Vault"]
+      Observe["Application Insights / Monitor / Workbooks<br/>Audit / health / Cost Management budgets"]
+    end
     Identity -->|"MFA / user and group policy"| CloudVPN
+    Identity -.->|"Application roles"| Portal
     CloudVPN -->|"Private HTTPS"| Portal
     CloudVPN --> DNS
     Ingestion --> Signals
+    Connectors --> Signals
     Portal --> API
-    Agents --> API
-    API --> Signals
-    API --> Knowledge
-    API --> State
-    Agents --> Models
-    Agents --> Observe
+    Agents -->|"Authorized tool requests"| API
+    API -->|"Scoped queries"| Signals
+    API -->|"Authorized retrieval"| Knowledge
+    API -->|"Cases / evidence / task state"| State
+    Agents -->|"Inference, not equipment commands"| Models
+    Agents -.->|"Redacted audit / health"| Observe
+    Hosting -.->|"Hosts portal, API and four agents"| Reasoning
+    API -->|"Findings / case results"| Portal
+    Portal --> Approval
   end
 
   Human -->|"Azure VPN Client / OpenVPN"| CloudVPN
   SiteVPN <-->|"IPsec / IKEv2 + BGP"| CloudVPN
   CloudVPN -->|"Allowed private HTTPS ingestion"| Ingestion
-  Operator -.->|"Native agent telemetry via approved egress"| Signals
-  API -->|"Approved notifications / escalation drafts"| Recipients["Utility contacts / designated state contacts / CISA"]
+  Operator -.->|"Native AMA telemetry on supported paths"| Ingestion
+  Operator -.->|"Endpoint evidence via Microsoft service"| Connectors
+  Boundary -.->|"Actual firewall diagnostics"| Signals
+  Approval -->|"Approved channel only"| Recipients["Utility / designated state contacts / CISA"]
+  Portal -.->|"Advice and alerts, NOT control"| Human
 ```
 
-This is a functional flow diagram, not a bypass around the firewall. The VPN is
+Solid arrows show application, data or authorized access flows; dotted arrows
+show selected audit/support/advice relationships. The gateway polls the
+plant-side proxy; the process-to-gateway arrow shows read responses, not a
+PLC-initiated cloud connection. Layer 7's Foundry node is model inference, not
+another agent-hosting platform. Layer grouping is functional: all six application
+containers use the same proposed internal Container Apps environment.
+
+This is a layered functional/physical diagram, not a bypass around the firewall. The VPN is
 bidirectional transport, not permission to control equipment. Inter-zone,
 VPN-client and site-to-platform flows are enforced by section 6. Human access to
 the operator desktop traverses the VPN and site firewall; it does not expose
 public RDP. External incident communications require section 10 approval.
+The site firewall also inspects approved inter-zone conduits; its placement in
+the telemetry chain does not mean local read/audit traffic bypasses it. Native
+AMA, endpoint and cloud diagnostics retain their supported collection paths;
+they are not all passed through or normalized by the edge gateway.
 
 ## 3. Resource groups and network placement
 
