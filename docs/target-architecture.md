@@ -126,7 +126,8 @@ the corresponding component would run at a real site.
 | Layer | Architectural components | Utility/on-premises or cloud | Physical deployment in this lab |
 |---|---|---|---|
 | 1. Local process and control | Tank, sensors, pump/motor; PLC/RTU or other local controller; protocol-enforcing read boundary | Utility/on-premises; Purdue 0/1 | One `vm-tgt-plant`: simulated physical process, actual OpenPLC and proxy as software components; not separate physical devices |
-| 2. Operator supervision | HMI, named operator desktop, local audit, Windows AMA and endpoint protection | Utility/on-premises; Purdue 2 | `vm-tgt-hmi` and `vm-tgt-operator` in `snet-supervisory` |
+| 2. Operator supervision | HMI, dedicated plant operations PC, named operator access, local audit, Windows AMA and endpoint protection | Utility/on-premises; Purdue 2 | `vm-tgt-hmi` and `vm-tgt-operator` in `snet-supervisory`; planned Entra VM sign-in, no routine email/general browsing |
+| Business-work context | Separate PC for email, office applications and non-operational work; separate Entra business permissions | Utility/on-premises business/IT network, outside plant control | Existing real-site workstation shown for context; no additional business VM provisioned or included in the initial four-VM emulation |
 | 3. Edge collection and forwarding | Read-only adapters, validated mappings, collector service, local durable outbox, relay and supported log receiver | Utility/on-premises; industrial DMZ | One `vm-tgt-gateway` in `snet-dmz`; two services on one box, not a VPN router |
 | 4. Site network protection and tunnel | Firewall policy, NSGs, inspected routes and site VPN termination | Utility/on-premises boundary | Azure Firewall Standard and site Azure VPN Gateway; managed services, not extra utility VMs |
 | 5. Private cloud entry and ingestion | Platform VPN termination, private DNS, monitoring private-link scope, DCE/DCRs and native security connectors | Cloud | Platform Azure VPN Gateway, Private DNS Resolver and Azure Monitor ingestion resources; scoped private HTTPS paths |
@@ -150,10 +151,13 @@ flowchart TB
       Sensors["Water Sensors"]
       PLC["PLC / Local Controller"]
       Pump["Pump and Motor"]
-      Desktop["Operator Desktop"]
+      Desktop["Plant Operations PC<br/>HMI browser / approved plant software"]
       HMI["HMI"]
       Tank --> Sensors --> PLC --> Pump
       Desktop --> HMI --> PLC
+    end
+    subgraph Business["Business / IT Network"]
+      BusinessPC["Business PC<br/>Email / office / non-operational work"]
     end
     Gateway["Edge Gateway"]
     Firewall["Utility Firewall"]
@@ -162,6 +166,7 @@ flowchart TB
   end
 
   subgraph Cloud["AZURE CLOUD"]
+    Entra["Microsoft Entra Sign-in"]
     CloudVPN["Azure VPN Gateway"]
     Ingestion["Telemetry Ingestion"]
     Evidence["Evidence and Detection"]
@@ -172,12 +177,17 @@ flowchart TB
 
   SiteVPN --> CloudVPN
   Portal --> Review["Operator Review and Approved Sharing"]
+  Desktop --> Entra
+  BusinessPC --> Entra
 ```
 
 The inner boxes are components, not extra VMs. In the lab, the tank, sensors
 and pump/motor are simulated on the plant VM alongside actual OpenPLC; the HMI
-and operator desktop use their existing proposed VMs. The PLC-to-gateway arrow
-represents read responses, not equipment commands from Azure. Pump commands
+and plant operations PC use their existing proposed VMs. The business PC is
+real-site context, outside the initial four-VM lab inventory; this diagram does
+not provision an extra workstation. The two PC-to-Entra arrows show planned
+sign-in flows, not plant-control permissions or completed onboarding.
+The PLC-to-gateway arrow represents read responses, not equipment commands from Azure. Pump commands
 act through a local starter/drive where applicable, omitted here for simplicity.
 
 Arrows show the main telemetry-to-insight flow, not equipment commands or every
@@ -260,7 +270,7 @@ not a claim of available subscription quota or production sizing.
 |---|---|---|---|
 | `vm-tgt-plant` | Supported Ubuntu; about 2 vCPU / 4 GiB | Pinned OpenPLC, plant model and existing protocol-enforcing proxy | Actual software PLC; simulated tank, chlorine, sensors, motor and hydraulics |
 | `vm-tgt-hmi` | Supported Ubuntu; about 2 vCPU / 4 GiB | Existing HMI image, local TLS and extended user/session/action auditing | Actual application and Linux logs |
-| `vm-tgt-operator` | Windows Server 2022 Desktop Experience; about 2 vCPU / 8 GiB | Browser-based operator desktop, AMA and licensed endpoint protection | Genuine Windows/endpoint events; a server desktop emulates the workstation |
+| `vm-tgt-operator` | Windows Server 2022 Desktop Experience; about 2 vCPU / 8 GiB | Dedicated plant operations desktop: HMI browser, approved plant software, planned `AADLoginForWindows` extension with system-assigned identity and scoped VM login role, AMA and licensed endpoint protection | Genuine Windows/endpoint events; a server desktop emulates the workstation; no routine email/general browsing |
 | `vm-tgt-gateway` | Supported Ubuntu; about 2 vCPU / 4 GiB, subject to combined-load sizing | Collector and relay as separate services: read-only adapters, versioned tag mapping, quality checks, durable SQLite outbox, authenticated telemetry and CEF/Syslog forwarding | Actual reads of simulated process values and actual transport/host logs; no invented vendor-firewall records |
 | Azure Firewall Standard + Firewall Policy | Managed Azure service | Stateful network/application rules, restricted egress and diagnostic logs | Genuine Azure firewall evidence representing the lab boundary, not a physical utility appliance |
 | Two Azure VPN Gateways | Supported route-based/BGP-capable SKU | Platform P2S entry and site-to-platform IPsec tunnel | Genuine VPN authentication, connection and tunnel evidence |
@@ -356,6 +366,7 @@ Default-deny all other site, cross-zone and platform-to-site connections.
 | Site VPN gateway <-> platform VPN gateway | IPsec/IKEv2, with BGP routing inside the tunnel | Protected machine/tunnel authentication; scoped routed prefixes, no interactive MFA |
 | VPN client -> private portal / DNS | HTTPS 443; private DNS TCP/UDP 53 | Authorized portal role, private DNS resolution and explicit VPN client routes |
 | VPN client -> operator desktop / authorized admin target | Private RDP 3389 / SSH 22 as approved | Separate named OS/VM roles; VPN membership alone is not login authorization |
+| Business PC / business role -> plant HMI, PLC and edge gateway | No permitted business-work conduit | Deny business-network OT access and do not grant plant VM/HMI roles through business membership |
 | Plant model -> OpenPLC input adapter | Host-local input frame | Existing validated sensor contract; not a cloud endpoint |
 | Windows operator -> local HMI | HTTPS 443 | Named local operator/session; local control role |
 | HMI -> PLC proxy | Modbus TCP 502 | Only approved setpoint words/function codes; never raw runtime/admin access |
@@ -398,6 +409,29 @@ The operator controls the private HMI from the utility's Windows desktop.
 The HMI records its authenticated local user/session with every requested change
 and the observed result. A setpoint acknowledgement is not proof of motor motion
 or physical water quality.
+
+The same operator may use two separately signed-in computers:
+
+| Computer | Summarized activity | Planned Entra integration |
+|---|---|---|
+| Plant operations PC | HMI browser and approved plant software; no routine email or general browsing | In this Azure lab, supported Windows Server VM Entra sign-in using `AADLoginForWindows`, system-assigned managed identity and a scoped `Virtual Machine User Login` role |
+| Business PC | Email, office applications and non-operational work | At a real site, a supported Entra-joined Windows workstation with business application roles and applicable Conditional Access/device policies; shown as context, not an extra initial lab VM |
+
+**Both use Entra identity, but not the same access permissions.** Business
+membership does not grant plant-control privileges or a business-network path to
+the HMI. Use individual accounts and separately reviewed OT/business roles.
+HMI application authorization remains independent; Entra Windows sign-in does
+not automatically enable HMI single sign-on or identify every PLC operation.
+
+The Server 2022 lab VM's Entra sign-in requires its supported extension, role
+assignments, RDP client and outbound identity endpoints. Do not equate this
+Azure-specific capability with ordinary physical Windows Server onboarding.
+Microsoft's current guidance excludes Conditional Access for Windows Server
+VMs using this join extension and excludes Windows Server Intune MDM enrollment.
+Enforce remote human MFA at the VPN; do not claim that every Server desktop
+sign-in is protected by Conditional Access/MFA. Real Windows workstations need
+their own supported join/management design and tested local/offline access.
+None of this identity onboarding has been performed by the architecture document.
 
 Remote users first establish the Entra-authenticated VPN with Conditional Access/
 MFA, then access the private cloud portal according to their application role.
@@ -554,7 +588,7 @@ fallback. No live utility, malware or public OT exposure is required for testing
 | Local control independence | Stop cloud ingestion/agents; local HMI/PLC loop continues; UI reports cloud/feed loss honestly |
 | Network enforcement | Off-network clients cannot reach private portal/HMI/VM/data endpoints without VPN; only required public VPN ingress; allowed private read/HMI paths; rejected writes from either gateway service and rejected agent-to-site connections; no gateway forwarding/bridging |
 | Genuine collection | Source events and receipt times from Windows, Linux, Entra, endpoint protection and firewall; clear process simulation labels |
-| Identity and MFA | VPN user/group restrictions and MFA success/failure; separate VM/app role denial; no public/App Proxy/peering bypass; documented local/offline behavior |
+| Identity and MFA | VPN user/group restrictions and MFA success/failure; planned Entra VM sign-in and scoped operator role; business-role/VM/HMI denial; no public/App Proxy/peering bypass; documented local/offline behavior; no unsupported Server Conditional Access/MDM claims |
 | VPN and DNS | Client routes and private name resolution; BGP/return-path proof; tunnel failure queues telemetry and does not stop local control |
 | Combined gateway reliability | Collector/relay service restarts and full gateway outage; durable pending records, bounded retries and deduplication after recovery; stale-feed alerts and uninterrupted local control |
 | Process interpretation | Known units/scaling, high/low/rate/stale/quality cases and no invented human attribution |
@@ -576,6 +610,7 @@ and isolation proof last. No infrastructure is provisioned by this document.
 - [Azure Firewall](https://learn.microsoft.com/en-us/azure/firewall/overview)
 - [Entra-authenticated P2S VPN using the Microsoft-registered client](https://learn.microsoft.com/en-us/azure/vpn-gateway/point-to-site-entra-gateway)
 - [P2S routing across VPN-connected VNets](https://learn.microsoft.com/en-us/azure/vpn-gateway/vpn-gateway-about-point-to-site-routing)
+- [Microsoft Entra sign-in for Windows VMs in Azure: requirements and limitations](https://learn.microsoft.com/en-us/entra/identity/devices/howto-vm-sign-in-azure-ad-windows)
 - [Azure Monitor Logs Ingestion API](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/logs-ingestion-api-overview)
 - [Microsoft Sentinel ASIM](https://learn.microsoft.com/en-us/azure/sentinel/normalization)
 - [OGC SensorThings API](https://www.ogc.org/standards/sensorthings/)
