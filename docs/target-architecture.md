@@ -115,6 +115,14 @@ subject to verified recipients and case-specific authorization.
 
 ## 2. Physical deployment overview
 
+### Logical architecture companion
+
+[Open the Target logical architecture SVG](target-logical-architecture.svg).
+This grouped-box view shows local control, collection/transport, evidence,
+four agents and private operator access. It describes the proposed Target,
+not the deployed Route A/B labs. Native endpoint/identity integrations retain
+their supported paths; not every log traverses the edge collection application.
+
 ### 2.1 Layered physical architecture and components
 
 Read the numbered layers from utility equipment toward Azure insights.
