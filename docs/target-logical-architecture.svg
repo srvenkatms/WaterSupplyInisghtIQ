@@ -108,13 +108,13 @@
   <text x="625" y="674" class="small">IPsec / scoped machine identities / TLS</text>
   <text x="625" y="703" class="small">Private process and AMA ingestion</text>
   <path d="M475 675H605" class="line"/>
-  <text x="491" y="655" class="small">Site tunnel</text>
+  <text x="491" y="700" class="small">Site tunnel</text>
   <rect x="1165" y="615" width="580" height="120" rx="10" class="security"/>
   <text x="1185" y="645" class="subheading">Microsoft cloud services - PC connections</text>
   <text x="1185" y="674" class="small">Entra ID authentication / Defender endpoint service</text>
   <text x="1185" y="703" class="small">PC-initiated traffic; firewall permits passage, not sign-in</text>
-  <path d="M475 720V750H1455V735" class="security-line"/>
-  <text x="590" y="779" class="small">Approved outbound PC connections to Entra / Defender - NOT firewall or VPN log export</text>
+  <text x="1185" y="728" class="small">Approved PC egress - separate from site VPN / log export</text>
+  <path d="M475 645H540V605H1100V655H1165" class="security-line"/>
   </g>
 
   <g id="evidence-layer" transform="translate(0 340)">
