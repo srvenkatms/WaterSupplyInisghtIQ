@@ -1,9 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="2040" viewBox="0 0 1800 2040" style="max-width:100%;height:auto" role="img" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="2020" height="2040" viewBox="-220 0 2020 2040" style="max-width:100%;height:auto" role="img" aria-labelledby="title description">
   <title id="title">Water Utility InsightIQ: Target logical architecture</title>
   <desc id="description">Proposed design, not deployed. Local tank sensors feed a PLC, which commands a motor starter or drive and pump. A dedicated plant PC accesses a separate HMI; the business PC has no plant-control access. One edge gateway contains collector and relay services. Native AMA and Defender agents collect host evidence separately. Both collection paths cross the utility firewall. Private process and Windows ingestion uses the site-to-Azure VPN; Defender and identity services use approved service egress. Entra sign-ins and Azure firewall and VPN diagnostics originate in cloud services. Process and security evidence converge in utility-scoped Log Analytics and Sentinel. Four separate container-hosted agents use a utility-scoped API for evidence, cases and approved runbooks, and call Foundry models for inference. Private portal access requires human VPN, Entra ID and MFA. External incident sharing requires human approval. There is no cloud-to-PLC command path. Four utility VMs are proposed; the business PC is real-site context, not a fifth initial VM.</desc>
   <defs>
     <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#32627c"/></marker>
     <marker id="security-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#73539b"/></marker>
+    <marker id="access-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#b46b13"/></marker>
+    <g id="person">
+      <circle cx="0" cy="-24" r="11"/>
+      <path d="M0 -10V18M-19 0H19M0 18L-15 40M0 18L15 40"/>
+    </g>
     <style>
       text{font-family:Segoe UI,Arial,sans-serif;fill:#173c54}
       .title{font-size:29px;font-weight:700}
@@ -15,9 +20,11 @@
       .security{fill:#fcf9ff;stroke:#9775b3;stroke-width:1.8}
       .line{fill:none;stroke:#32627c;stroke-width:2.6;marker-end:url(#arrow)}
       .security-line{fill:none;stroke:#73539b;stroke-width:2.6;marker-end:url(#security-arrow)}
+      .person{fill:none;stroke:#b46b13;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+      .access-line{fill:none;stroke:#b46b13;stroke-width:3;stroke-dasharray:8 5;marker-end:url(#access-arrow)}
     </style>
   </defs>
-  <rect width="1800" height="2040" fill="#f6f9fc"/>
+  <rect x="-220" width="2020" height="2040" fill="#f6f9fc"/>
   <text x="35" y="45" class="title">Water Utility InsightIQ: Target logical architecture</text>
   <text x="35" y="77" class="body">PROPOSED / NOT DEPLOYED | Local control stays local | Azure collects, detects, guides and coordinates</text>
 
@@ -72,9 +79,17 @@
   <text x="1355" y="415" class="subheading">Business PC - separate IT access</text>
   <text x="1355" y="444" class="small">Email / office / non-operational work</text>
   <text x="1355" y="471" class="small">Real-site context; no plant-control access</text>
+  <use href="#person" x="1155" y="425" class="person"/>
+  <text x="1155" y="490" text-anchor="middle" class="small">Business user</text>
+  <path d="M1185 435H1335" class="access-line"/>
+  <text x="1215" y="419" class="small">Sign in</text>
   <path d="M1540 385V340" class="security-line"/>
   <path d="M205 490V525H1778V268H1745" class="security-line"/>
   <text x="1230" y="507" class="small">Both PCs: separate Entra roles / endpoint onboarding</text>
+  <use href="#person" x="-120" y="425" class="person"/>
+  <text x="-120" y="490" text-anchor="middle" class="small">Local operator</text>
+  <path d="M-90 435H55" class="access-line"/>
+  <text x="-75" y="419" class="small">Sign in</text>
 
   <g id="transport-layer" transform="translate(0 100)">
   <rect x="35" y="555" width="1730" height="210" rx="14" fill="#eaf3fb" stroke="#7198b7" stroke-width="2"/>
@@ -156,17 +171,24 @@
   <rect x="35" y="1425" width="1730" height="180" rx="14" fill="#eef5f8" stroke="#7198b7" stroke-width="2"/>
   <text x="55" y="1458" class="heading">PRIVATE OPERATOR EXPERIENCE / HUMAN APPROVAL</text>
   <rect x="55" y="1480" width="470" height="95" rx="10" class="box"/>
-  <text x="75" y="1510" class="subheading">Named operator / analyst</text>
-  <text x="75" y="1539" class="small">Human VPN + Entra ID + MFA / application roles</text>
+  <use href="#person" x="-120" y="1508" class="person"/>
+  <text x="-120" y="1570" text-anchor="middle" class="small">Remote operator</text>
+  <text x="-120" y="1595" text-anchor="middle" class="small">or analyst</text>
+  <path d="M-90 1528H55" class="access-line"/>
+  <text x="75" y="1510" class="subheading">Human VPN + Entra ID + MFA</text>
+  <text x="75" y="1539" class="small">Named operator / analyst; role-scoped access</text>
   <rect x="665" y="1480" width="500" height="95" rx="10" class="box"/>
   <text x="685" y="1510" class="subheading">Private portal / case API</text>
   <text x="685" y="1539" class="small">Findings / alerts / guidance / approval requests</text>
   <rect x="1305" y="1480" width="440" height="95" rx="10" class="box"/>
   <text x="1325" y="1510" class="subheading">Approved incident sharing</text>
   <text x="1325" y="1539" class="small">Utility / designated state contacts / CISA</text>
-  <path d="M525 1528H665" class="line"/>
+  <path d="M525 1528H665" class="access-line"/>
   <path d="M1165 1528H1305" class="line"/>
   <path d="M320 1250V1360H915V1480" class="line"/>
   <text x="55" y="1595" class="small">No agent PLC writes or host administration. Sharing requires verified recipients + human approval. IoT Hub remains optional.</text>
   </g>
+  <path d="M-190 100H-135" class="access-line"/>
+  <text x="-200" y="133" class="small">Human access</text>
+  <text x="-200" y="157" class="small">Not telemetry</text>
 </svg>
