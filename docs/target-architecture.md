@@ -50,26 +50,32 @@ flowchart TB
       ReadCollector["Collector service<br/>Reads and interprets PLC values"]
       ForwardRelay["Relay service<br/>Buffers and forwards reports"]
     end
-    LocalSecurity["Windows / HMI / firewall logs<br/>Optional OT security sensor"]
+    HostEvents["Per-PC AMA<br/>Selected Windows events"]
+    EndpointClients["Per-PC Defender / identity clients"]
+    UtilityFirewall["Utility firewall<br/>Inspected collection and service egress"]
     LocalOperator -->|"Operator actions"| LocalHMI
     LocalHMI -->|"Approved control requests"| LocalPLC
     LocalPLC -->|"Local equipment control"| Equipment
     Equipment -->|"Sensor measurements"| LocalPLC
     LocalPLC -->|"Read-only observations"| ReadCollector
+    LocalHMI -->|"Authenticated action audit"| ReadCollector
     ReadCollector --> ForwardRelay
+    ForwardRelay -->|"Process / HMI reports"| UtilityFirewall
+    HostEvents -->|"Native Monitor collection"| UtilityFirewall
+    EndpointClients -->|"Supported cloud connections"| UtilityFirewall
   end
 
   SiteConnection["Site-to-cloud VPN<br/>Telemetry uses scoped machine identities and TLS"]
   RemoteHuman["Authorized operator / analyst"]
   HumanConnection["Human-access VPN<br/>Entra ID + MFA"]
-  ForwardRelay -->|"Water reports"| SiteConnection
-  LocalSecurity -->|"Supported security collection paths"| SiteConnection
+  UtilityFirewall -->|"Private process / HMI / AMA ingestion"| SiteConnection
   RemoteHuman --> HumanConnection
 
   subgraph CloudConcept["AZURE CLOUD SERVICE - insights, not process control"]
-    WaterReceiver["Water/process data receiver<br/>IoT Hub optional for fleet messaging"]
+    WaterReceiver["Azure Monitor ingestion<br/>Process / HMI audit / AMA"]
     SecurityReceiver["Security evidence<br/>Sentinel / Defender integrations"]
-    CloudSecurity["Entra / Defender cloud signals"]
+    CloudSecurity["Microsoft Entra / Defender services<br/>Cloud sign-in and endpoint evidence"]
+    ResourceDiagnostics["Azure-managed firewall / VPN resources<br/>Own logs via diagnostic settings"]
     EvidenceContext["Utility-scoped evidence and cases<br/>Separate schemas + asset context + approved runbooks"]
     subgraph AgentConcept["FOUR COOPERATING AGENTS"]
       Exposure["Exposure Assessor<br/>Find exposure and weak access"]
@@ -81,6 +87,7 @@ flowchart TB
     WaterReceiver --> EvidenceContext
     SecurityReceiver --> EvidenceContext
     CloudSecurity --> SecurityReceiver
+    ResourceDiagnostics -->|"Own resource logs"| EvidenceContext
     EvidenceContext --> Exposure
     EvidenceContext --> Coach
     EvidenceContext --> Monitor
@@ -91,8 +98,8 @@ flowchart TB
     Coordinator --> PrivatePortal
   end
 
-  SiteConnection -->|"Process stream"| WaterReceiver
-  SiteConnection -->|"Security stream"| SecurityReceiver
+  SiteConnection -->|"Private ingestion over TLS"| WaterReceiver
+  UtilityFirewall -->|"Approved outbound PC connections, not VPN/log export"| CloudSecurity
   HumanConnection -->|"Authenticated private access"| PrivatePortal
   PrivatePortal -.->|"Advice and alerts, not equipment commands"| LocalOperator
   PrivatePortal --> Approval["Authorized human review and approval"]
@@ -101,12 +108,17 @@ flowchart TB
 
 The two VPN boxes are different functions: people authenticate with Entra ID/MFA;
 the site's automated link authenticates gateways and workloads, without an MFA
-prompt for every message. The shared connection box denotes permitted transport,
-not a universal schema or a requirement to send security logs through IoT Hub.
+prompt for every message. The site connection carries private process/HMI
+ingestion and selected Windows events from AMA. Defender and identity clients
+instead use approved firewall
+service egress. Entra/Defender cloud evidence uses native connectors, while the
+Azure-managed firewall and VPN resources export their own logs through diagnostic
+settings; neither cloud-log path traverses the site collection gateway or VPN.
+These paths do not imply a universal schema or security collection through IoT Hub.
 Native cloud security connectors do not originate from the PLC.
 
-IoT Hub and an OT security sensor are optional integration roles in this conceptual
-view, not newly selected or deployed resources. The base design still supports
+IoT Hub and an OT security sensor are optional future integrations, not shown as
+required components or newly selected/deployed resources. The base design uses
 HTTPS process ingestion. An OT sensor needs validated traffic visibility; it is
 not another water sensor. The detailed inventory and restrictions follow below.
 
@@ -144,7 +156,7 @@ the corresponding component would run at a real site.
 |---|---|---|---|
 | 1. Local process and control | Tank, sensors, pump/motor; PLC/RTU or other local controller; protocol-enforcing read boundary | Utility/on-premises; Purdue 0/1 | One `vm-tgt-plant`: simulated physical process, actual OpenPLC and proxy as software components; not separate physical devices |
 | 2. Operator supervision | HMI, dedicated plant operations PC, named operator access, local audit, Windows AMA and endpoint protection | Utility/on-premises; Purdue 2 | `vm-tgt-hmi` and `vm-tgt-operator` in `snet-supervisory`; planned Entra VM sign-in, no routine email/general browsing |
-| Business-work context | Separate PC for email, office applications and non-operational work; separate Entra business permissions | Utility/on-premises business/IT network, outside plant control | Existing real-site workstation shown for context; no additional business VM provisioned or included in the initial four-VM emulation |
+| Business-work context | Separate PC for email, office applications and non-operational work; separate Entra business permissions; per-PC AMA and Defender for Endpoint subject to supported onboarding/licensing | Utility/on-premises business/IT network, outside plant control | Existing real-site workstation shown for context; AMA client installer/prerequisites must be validated; no additional business VM provisioned or included in the initial four-VM emulation |
 | 3. Edge collection and forwarding | Read-only adapters, validated mappings, collector service, local durable outbox, relay and supported log receiver | Utility/on-premises; industrial DMZ | One `vm-tgt-gateway` in `snet-dmz`; two services on one box, not a VPN router |
 | 4. Site network protection and tunnel | Firewall policy, NSGs, inspected routes and site VPN termination | Utility/on-premises boundary | Azure Firewall Standard and site Azure VPN Gateway; managed services, not extra utility VMs |
 | 5. Private cloud entry and ingestion | Platform VPN termination, private DNS, monitoring private-link scope, DCE/DCRs and native security connectors | Cloud | Platform Azure VPN Gateway, Private DNS Resolver and Azure Monitor ingestion resources; scoped private HTTPS paths |
@@ -165,12 +177,18 @@ flowchart TB
   subgraph Access["UTILITY PCs AND CLOUD SIGN-IN"]
     subgraph Workstations["Operator Workstations - Separate OT and Business Access"]
       direction LR
-      Desktop["Plant Operations PC<br/>HMI browser / approved plant software"]
-      BusinessPC["Business PC<br/>Email / office / non-operational work"]
+      subgraph Desktop["Plant Operations PC"]
+        DesktopApps["HMI browser / approved plant software"]
+        PlantAMA["Azure Monitor Agent (AMA)"]
+        PlantDefender["Microsoft Defender for Endpoint"]
+      end
+      subgraph BusinessPC["Business PC - Real-site Context"]
+        BusinessApps["Email / office / non-operational work"]
+        BusinessAMA["Azure Monitor Agent (AMA)<br/>Supported client installer / prerequisites"]
+        BusinessDefender["Microsoft Defender for Endpoint"]
+      end
     end
     Entra["Microsoft Entra Sign-in (Cloud)"]
-    Desktop --> Entra
-    BusinessPC --> Entra
   end
 
   subgraph Equipment["UTILITY - Local Equipment and Control"]
@@ -188,17 +206,19 @@ flowchart TB
   Gateway["Edge Gateway"]
   Firewall["Utility Firewall"]
   SiteVPN["Site VPN Gateway"]
-  NativeCollectors["Native Host / Endpoint Collectors<br/>AMA / Defender agents"]
-  Desktop --> HMI
+  DesktopApps -->|"HTTPS operator access"| HMI
   %% Layout-only link aligns the PCs; business-to-HMI access is prohibited.
-  BusinessPC ~~~ HMI
+  BusinessApps ~~~ HMI
   PLC -->|"Read-only telemetry"| Gateway
   HMI -->|"Access / action audit"| Gateway
-  Desktop -->|"Windows / endpoint logs"| NativeCollectors
-  BusinessPC -->|"Endpoint logs"| NativeCollectors
+  PlantAMA -->|"Selected Windows events"| Firewall
+  BusinessAMA -->|"Selected Windows events, if onboarded"| Firewall
+  PlantDefender -->|"Endpoint service connections"| Firewall
+  BusinessDefender -->|"Endpoint service connections"| Firewall
+  DesktopApps -->|"Entra authentication"| Firewall
+  BusinessApps -->|"Entra authentication"| Firewall
   Gateway --> Firewall
-  NativeCollectors --> Firewall
-  Firewall --> SiteVPN
+  Firewall -->|"Private process / HMI / AMA ingestion"| SiteVPN
 
   subgraph Cloud["AZURE MONITORING PLATFORM"]
     CloudVPN["Azure VPN Gateway"]
@@ -212,7 +232,7 @@ flowchart TB
     CloudVPN --> Ingestion
     Ingestion --> Evidence
     Defender --> Security
-    Diagnostics --> Security
+    Diagnostics -->|"Own logs via diagnostic settings"| Evidence
     Security --> Evidence
     Evidence --> Agents
     Agents --> Portal
@@ -220,12 +240,13 @@ flowchart TB
 
   SiteVPN --> CloudVPN
   Firewall -->|"Approved endpoint-service egress"| Defender
+  Firewall -->|"Approved identity-service egress, not site VPN"| Entra
   Entra -->|"Sign-in logs"| Security
   Portal --> Review["Operator Review and Approved Sharing"]
   linkStyle default stroke:#2563eb,stroke-width:2px;
 ```
 
-Entra is grouped near the PCs to keep both sign-in arrows short; it remains a
+Entra is grouped near the PCs for presentation; it remains a
 cloud identity service, not a service hosted inside the utility network.
 The two PC boxes are peers for presentation, not a shared network/security zone.
 Only the plant operations PC has the HMI access path; business access stays
@@ -233,10 +254,9 @@ separate. The inner boxes are components, not extra VMs. In the lab, the tank, s
 and pump/motor are simulated on the plant VM alongside actual OpenPLC; the HMI
 and plant operations PC use their existing proposed VMs. The business PC is
 real-site context, outside the initial four-VM lab inventory; this diagram does
-not provision an extra workstation. The two PC-to-Entra arrows show planned
-logical sign-in flows, not unfiltered network bypasses, plant-control permissions
-or completed onboarding. Identity-service traffic also needs approved firewall
-egress; those sign-in arrows do not depict every network hop.
+not provision an extra workstation. Both PCs' planned Entra authentication passes
+through approved firewall egress, not the site VPN. These sign-in paths do not
+grant plant-control permissions or imply completed onboarding.
 Sensors send measurements, such as tank level, to the PLC. The PLC uses those
 inputs and local operator requests to issue pump control commands. It does not
 supply motor power: commands act through a local starter/drive where applicable,
@@ -250,20 +270,28 @@ controlled utility network boundary. Private Monitor ingestion traverses the
 site and Azure VPN gateways; supported Defender cloud traffic uses separately
 approved firewall egress, not an assumed private/VPN-only endpoint.
 
-The native-collectors box groups agent software on existing computers, not a
-new collector VM: AMA on the Server-based plant operations VM, and supported
-Defender agents on the selected endpoints. The cloud diagnostics box represents
+Each PC contains its own AMA and Defender for Endpoint software, not a shared
+collector host or another VM. The plant operations Server VM uses its supported
+AMA VM extension; the business Windows client requires the supported AMA client
+installer and validated prerequisites. Each PC needs its own AMA DCR association/
+Windows audit configuration and Defender onboarding with appropriate licensing.
+AMA collects selected logon/RDP, system/application and enabled audit events;
+Defender collects endpoint alerts and selected suspicious program/file/network
+evidence, subject to policy and licensing. The cloud diagnostics box represents
 diagnostic settings for the Azure-managed firewall and both VPN gateways, not
 utility-host traffic or another appliance. Entra records and these Azure resource
 diagnostics originate in cloud services; routing them down to the edge gateway
-and back to Azure is unnecessary. Native security integration groups connector/
-diagnostic functions, not one universal receiver or a new custom service.
+and back to Azure is unnecessary. Native security integration groups
+Entra/Defender connector functions, not one universal receiver or a new custom
+service. Azure firewall/VPN diagnostic exports
+have their own path to the workspace, separate from PC service connections.
 
 | Signal source | Examples of evidence | Proposed collection path |
 |---|---|---|
 | PLC/process | Tank level, chlorine measurements and pump state | Read-only edge gateway -> site firewall -> VPN -> Azure Monitor process ingestion |
 | HMI | Application sign-in, session, access and operator action/result | Authenticated HMI audit -> edge gateway -> site firewall -> VPN -> Azure Monitor audit ingestion |
 | Plant operations Windows VM | Selected successful/failed Windows logons, RDP access and enabled OS audit events | AMA + approved DCR/event selection -> site firewall/VPN -> supported private Monitor endpoints |
+| Business Windows PC (real-site context) | Selected Windows logon, system/application and enabled audit events | Supported AMA client installer + validated prerequisites and approved DCR/event selection -> approved firewall/private Monitor path; validate site VPN/private DNS reachability before enabling this feed; no extra initial lab VM |
 | Plant and business endpoints | Endpoint alerts and selected process/file/network evidence | Supported Defender for Endpoint agents -> approved site-firewall egress -> Defender XDR -> approved Sentinel connector/event coverage |
 | Microsoft Entra | Cloud sign-ins, MFA/Conditional Access outcomes and available identity-risk evidence | Entra service connector -> utility Sentinel workspace |
 | Utility firewall | Actual allowed/blocked network/application traffic records | Azure Firewall diagnostic settings in this lab -> workspace; a real appliance uses its supported CEF/Syslog/API connector and approved forwarder |
