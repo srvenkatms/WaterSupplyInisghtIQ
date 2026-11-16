@@ -122,6 +122,11 @@ This grouped-box view shows local control, collection/transport, evidence,
 four agents and private operator access. It describes the proposed Target,
 not the deployed Route A/B labs. Native endpoint/identity integrations retain
 their supported paths; not every log traverses the edge collection application.
+The SVG places AMA and Defender for Endpoint inside each PC and explains their
+selected collection coverage at the bottom. These are per-PC software components,
+not a shared collector host. Business-PC AMA requires the supported Windows client
+installer and validated prerequisites; the business PC remains real-site context,
+not another provisioned lab VM.
 
 ### 2.1 Layered physical architecture and components
 

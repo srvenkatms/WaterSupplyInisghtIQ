@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="2020" height="2040" viewBox="-220 0 2020 2040" style="max-width:100%;height:auto" role="img" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="2020" height="2320" viewBox="-220 0 2020 2320" style="max-width:100%;height:auto" role="img" aria-labelledby="title description">
   <title id="title">Water Utility InsightIQ: Target logical architecture</title>
   <desc id="description">Proposed design, not deployed. Local tank sensors feed a PLC, which commands a motor starter or drive and pump. A dedicated plant PC accesses a separate HMI; the business PC has no plant-control access. One edge gateway contains collector and relay services. Native AMA and Defender agents collect host evidence separately. Both collection paths cross the utility firewall. Private process and Windows ingestion uses the site-to-Azure VPN; Defender and identity services use approved service egress. Entra sign-ins and Azure firewall and VPN diagnostics originate in cloud services. Process and security evidence converge in utility-scoped Log Analytics and Sentinel. Four separate container-hosted agents use a utility-scoped API for evidence, cases and approved runbooks, and call Foundry models for inference. Private portal access requires human VPN, Entra ID and MFA. External incident sharing requires human approval. There is no cloud-to-PLC command path. Four utility VMs are proposed; the business PC is real-site context, not a fifth initial VM.</desc>
   <defs>
@@ -24,11 +24,11 @@
       .access-line{fill:none;stroke:#b46b13;stroke-width:3;stroke-dasharray:8 5;marker-end:url(#access-arrow)}
     </style>
   </defs>
-  <rect x="-220" width="2020" height="2040" fill="#f6f9fc"/>
+  <rect x="-220" width="2020" height="2320" fill="#f6f9fc"/>
   <text x="35" y="45" class="title">Water Utility InsightIQ: Target logical architecture</text>
   <text x="35" y="77" class="body">PROPOSED / NOT DEPLOYED | Local control stays local | Azure collects, detects, guides and coordinates</text>
 
-  <rect x="35" y="110" width="1730" height="405" rx="16" fill="#eff9f3" stroke="#4f9271" stroke-width="2"/>
+  <rect x="35" y="110" width="1730" height="475" rx="16" fill="#eff9f3" stroke="#4f9271" stroke-width="2"/>
   <text x="55" y="144" class="heading">UTILITY SITE / ON-PREMISES - emulated in Azure</text>
   <text x="55" y="172" class="small">Four proposed site VMs: plant, HMI, plant operations PC and one edge gateway. Inner boxes represent logical components.</text>
 
@@ -56,16 +56,14 @@
   <path d="M535 300V325H905V285H925" class="line"/>
   <text x="735" y="364" class="small">Read-only PLC data</text>
 
-  <rect x="1335" y="195" width="410" height="145" rx="12" class="security"/>
-  <text x="1355" y="225" class="subheading">Native host / endpoint agents</text>
-  <text x="1355" y="253" class="small">AMA: selected Windows / RDP logs</text>
-  <text x="1355" y="280" class="small">Defender: endpoint alerts / evidence</text>
-  <text x="1355" y="308" class="small">Software on hosts, not another VM</text>
-
-  <rect x="55" y="385" width="300" height="105" rx="10" class="box"/>
+  <rect x="55" y="385" width="300" height="165" rx="10" class="box"/>
   <text x="75" y="415" class="subheading">Plant operations PC</text>
-  <text x="75" y="444" class="small">HMI browser / approved plant apps</text>
-  <text x="75" y="471" class="small">vm-tgt-operator / Windows</text>
+  <text x="75" y="440" class="small">HMI browser / approved plant apps</text>
+  <text x="75" y="463" class="small">vm-tgt-operator / Windows</text>
+  <rect x="70" y="475" width="270" height="28" rx="5" class="security"/>
+  <text x="80" y="495" class="small">Azure Monitor Agent (AMA)</text>
+  <rect x="70" y="510" width="270" height="28" rx="5" class="security"/>
+  <text x="80" y="530" class="small">Microsoft Defender for Endpoint</text>
   <rect x="425" y="385" width="260" height="105" rx="10" class="box"/>
   <text x="445" y="415" class="subheading">Separate HMI server</text>
   <text x="445" y="444" class="small">vm-tgt-hmi / Linux</text>
@@ -75,17 +73,19 @@
   <path d="M555 385V355H440V310" class="line"/>
   <path d="M685 435H1000V340" class="line"/>
   <text x="710" y="419" class="small">HMI audit to collector</text>
-  <rect x="1335" y="385" width="410" height="105" rx="10" class="security"/>
+  <rect x="1335" y="385" width="410" height="165" rx="10" class="security"/>
   <text x="1355" y="415" class="subheading">Business PC - separate IT access</text>
-  <text x="1355" y="444" class="small">Email / office / non-operational work</text>
-  <text x="1355" y="471" class="small">Real-site context; no plant-control access</text>
+  <text x="1355" y="440" class="small">Email / office / non-operational work</text>
+  <text x="1355" y="463" class="small">Real-site context; no plant-control access</text>
+  <rect x="1350" y="475" width="380" height="28" rx="5" class="security"/>
+  <text x="1360" y="495" class="small">Azure Monitor Agent (AMA)</text>
+  <rect x="1350" y="510" width="380" height="28" rx="5" class="security"/>
+  <text x="1360" y="530" class="small">Microsoft Defender for Endpoint</text>
   <use href="#person" x="1155" y="425" class="person"/>
   <text x="1155" y="490" text-anchor="middle" class="small">Business user</text>
   <path d="M1185 435H1335" class="access-line"/>
   <text x="1215" y="419" class="small">Sign in</text>
-  <path d="M1540 385V340" class="security-line"/>
-  <path d="M205 490V525H1778V268H1745" class="security-line"/>
-  <text x="1230" y="507" class="small">Both PCs: separate Entra roles / endpoint onboarding</text>
+  <text x="1060" y="575" class="small">Each PC has its own agents; separate roles / supported onboarding required</text>
   <use href="#person" x="-120" y="425" class="person"/>
   <text x="-120" y="490" text-anchor="middle" class="small">Local operator</text>
   <path d="M-90 435H55" class="access-line"/>
@@ -98,10 +98,11 @@
   <text x="75" y="645" class="subheading">Utility firewall / inspected routes</text>
   <text x="75" y="674" class="small">Shared boundary for collection traffic</text>
   <text x="75" y="703" class="small">No public HMI / PLC / VM ingress</text>
-  <path d="M1210 240V470H40V650H55" class="line"/>
-  <text x="520" y="462" class="small">Gateway relay output to firewall</text>
-  <path d="M1745 200H1790V500H25V695H55" class="security-line"/>
-  <text x="520" y="524" class="small">Native host-agent traffic to firewall</text>
+  <path d="M1210 240V510H40V650H55" class="line"/>
+  <text x="520" y="502" class="small">Gateway relay output to firewall</text>
+  <path d="M205 450V530H25V695H55" class="security-line"/>
+  <path d="M1540 450V530H25" fill="none" stroke="#73539b" stroke-width="2.6"/>
+  <text x="520" y="550" class="small">Each PC sends its own agent evidence through the firewall</text>
   <rect x="605" y="615" width="430" height="120" rx="10" class="box"/>
   <text x="625" y="645" class="subheading">Site VPN + Azure VPN gateway</text>
   <text x="625" y="674" class="small">IPsec / scoped machine identities / TLS</text>
@@ -191,4 +192,12 @@
   <path d="M-190 100H-135" class="access-line"/>
   <text x="-200" y="133" class="small">Human access</text>
   <text x="-200" y="157" class="small">Not telemetry</text>
+  <rect x="35" y="2060" width="1730" height="225" rx="14" fill="#fcf9ff" stroke="#9775b3" stroke-width="2"/>
+  <text x="55" y="2095" class="heading">WHAT THE SOFTWARE INSIDE EACH PC COLLECTS - planned, not installed</text>
+  <text x="55" y="2128" class="subheading">Azure Monitor Agent (AMA)</text>
+  <text x="55" y="2155" class="small">Selected Windows event logs: successful/failed logons, RDP access, system/application errors and enabled audit events selected by DCRs.</text>
+  <text x="55" y="2188" class="subheading">Microsoft Defender for Endpoint</text>
+  <text x="55" y="2215" class="small">Endpoint alerts and selected evidence about suspicious programs, malware, files and network activity; coverage depends on policy and licensing.</text>
+  <text x="55" y="2248" class="small">Server-based plant VM: supported AMA VM extension. Business Windows client: supported AMA client installer / prerequisites must be validated.</text>
+  <text x="55" y="2275" class="small">Each PC is onboarded separately; AMA uses Monitor ingestion, Defender uses its supported cloud service. Neither is one of the four AI agents.</text>
 </svg>
