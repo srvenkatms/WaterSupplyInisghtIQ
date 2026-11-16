@@ -122,6 +122,10 @@ This grouped-box view shows local control, collection/transport, evidence,
 four agents and private operator access. It describes the proposed Target,
 not the deployed Route A/B labs. Native endpoint/identity integrations retain
 their supported paths; not every log traverses the edge collection application.
+The firewall-to-Microsoft-services arrow represents approved outbound PC
+authentication and Defender connections, not firewall log export. Entra/Defender
+cloud evidence uses native connectors; the Azure-managed firewall and VPN
+resources export their own logs separately through diagnostic settings.
 The SVG places AMA and Defender for Endpoint inside each PC and explains their
 selected collection coverage at the bottom. These are per-PC software components,
 not a shared collector host. Business-PC AMA requires the supported Windows client

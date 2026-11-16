@@ -110,14 +110,17 @@
   <path d="M475 675H605" class="line"/>
   <text x="491" y="655" class="small">Site tunnel</text>
   <rect x="1165" y="615" width="580" height="120" rx="10" class="security"/>
-  <text x="1185" y="645" class="subheading">Cloud-native identity and security services</text>
-  <text x="1185" y="674" class="small">Entra sign-ins / Defender XDR / Azure firewall + VPN diagnostics</text>
-  <text x="1185" y="703" class="small">Approved endpoint/identity egress; cloud logs stay in cloud</text>
+  <text x="1185" y="645" class="subheading">Microsoft cloud services - PC connections</text>
+  <text x="1185" y="674" class="small">Entra ID authentication / Defender endpoint service</text>
+  <text x="1185" y="703" class="small">PC-initiated traffic; firewall permits passage, not sign-in</text>
   <path d="M475 720V750H1455V735" class="security-line"/>
-  <text x="590" y="779" class="small">Defender / identity traffic: supported service egress, not a custom gateway proxy</text>
+  <text x="590" y="779" class="small">Approved outbound PC connections to Entra / Defender - NOT firewall or VPN log export</text>
   </g>
 
   <g id="evidence-layer" transform="translate(0 340)">
+  <rect x="665" y="720" width="500" height="75" rx="10" class="security"/>
+  <text x="685" y="748" class="subheading">Azure-managed firewall + VPN resources</text>
+  <text x="685" y="777" class="small">Own logs via diagnostic settings - not PC traffic</text>
   <rect x="35" y="820" width="1730" height="210" rx="14" fill="#eaf3fb" stroke="#7198b7" stroke-width="2"/>
   <text x="55" y="854" class="heading">AZURE EVIDENCE / DETECTION - utility-scoped data, separate schemas</text>
   <rect x="55" y="880" width="470" height="120" rx="10" class="box"/>
@@ -130,10 +133,12 @@
   <text x="685" y="968" class="small">Deterministic alerts continue without AI</text>
   <rect x="1305" y="880" width="440" height="120" rx="10" class="security"/>
   <text x="1325" y="910" class="subheading">Native security integrations</text>
-  <text x="1325" y="939" class="small">Entra / Defender connectors</text>
-  <text x="1325" y="968" class="small">Azure resource diagnostic settings</text>
-  <path d="M820 635V750H290V880" class="line"/>
+  <text x="1325" y="939" class="small">Entra sign-in logs / Defender evidence</text>
+  <text x="1325" y="968" class="small">Cloud-generated records via native connectors</text>
+  <path d="M820 635V700H290V880" class="line"/>
   <path d="M1455 635V750H1525V880" class="security-line"/>
+  <text x="1540" y="799" class="small">Cloud evidence</text>
+  <path d="M915 795V805H1220V980H1165" class="security-line"/>
   <path d="M525 940H665" class="line"/>
   <path d="M1305 940H1165" class="security-line"/>
   </g>
