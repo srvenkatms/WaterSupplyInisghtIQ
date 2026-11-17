@@ -77,6 +77,7 @@ flowchart TB
     CloudSecurity["Microsoft Entra / Defender services<br/>Cloud sign-in and endpoint evidence"]
     ResourceDiagnostics["Azure-managed firewall / VPN resources<br/>Own logs via diagnostic settings"]
     EvidenceContext["Utility-scoped evidence and cases<br/>Separate schemas + asset context + approved runbooks"]
+    UtilityIQ["Utility IQ layer<br/>Shared meaning, relationships and grounded context via scoped API"]
     subgraph AgentConcept["FOUR COOPERATING AGENTS"]
       Exposure["Exposure Assessor<br/>Find exposure and weak access"]
       Coach["Operator Coach<br/>Explain approved next steps"]
@@ -88,10 +89,11 @@ flowchart TB
     SecurityReceiver --> EvidenceContext
     CloudSecurity --> SecurityReceiver
     ResourceDiagnostics -->|"Own resource logs"| EvidenceContext
-    EvidenceContext --> Exposure
-    EvidenceContext --> Coach
-    EvidenceContext --> Monitor
-    EvidenceContext --> Coordinator
+    EvidenceContext --> UtilityIQ
+    UtilityIQ --> Exposure
+    UtilityIQ --> Coach
+    UtilityIQ --> Monitor
+    UtilityIQ --> Coordinator
     Exposure --> PrivatePortal
     Coach --> PrivatePortal
     Monitor --> PrivatePortal
@@ -143,6 +145,9 @@ selected collection coverage at the bottom. These are per-PC software components
 not a shared collector host. Business-PC AMA requires the supported Windows client
 installer and validated prerequisites; the business PC remains real-site context,
 not another provisioned lab VM.
+The Utility IQ layer adds shared meaning and evidence relationships through the
+existing scoped API and stores; it is not another agent, VM or ingestion gateway.
+See section 8.3 for its purpose, implementation approach and dedicated diagram.
 
 ### 2.1 Layered physical architecture and components
 
@@ -160,7 +165,7 @@ the corresponding component would run at a real site.
 | 3. Edge collection and forwarding | Read-only adapters, validated mappings, collector service, local durable outbox, relay and supported log receiver | Utility/on-premises; industrial DMZ | One `vm-tgt-gateway` in `snet-dmz`; two services on one box, not a VPN router |
 | 4. Site network protection and tunnel | Firewall policy, NSGs, inspected routes and site VPN termination | Utility/on-premises boundary | Azure Firewall Standard and site Azure VPN Gateway; managed services, not extra utility VMs |
 | 5. Private cloud entry and ingestion | Platform VPN termination, private DNS, monitoring private-link scope, DCE/DCRs and native security connectors | Cloud | Platform Azure VPN Gateway, Private DNS Resolver and Azure Monitor ingestion resources; scoped private HTTPS paths |
-| 6. Evidence, detection and knowledge | Process/security records, deterministic detections, cases, evidence, work/poison queues and approved runbooks | Cloud | Utility Log Analytics/Sentinel, Cosmos DB, Blob/Queue Storage and Azure AI Search |
+| 6. Evidence, detection and knowledge | Process/security records, deterministic detections, cases, evidence, work/poison queues, approved runbooks and IQ context/relationships | Cloud | Utility Log Analytics/Sentinel, Cosmos DB, Blob/Queue Storage and Azure AI Search; IQ logic uses the existing utility API and stores |
 | 7. Agent reasoning and authorized tools | Exposure Assessor, Operator Coach, Monitoring Agent, Response Coordinator; scoped query/case API; model inference | Cloud | Four agent Container Apps, `ca-swutgt-u001-api` and Foundry models; agents use the API for evidence/tools |
 | 8. Operator insights and coordination | Private portal, findings, alerts, guidance, approval and incident packages | Cloud, accessed by authorized people over VPN | `ca-swutgt-portal`; human-approved utility/state/CISA communication, not equipment control |
 | Cross-cutting foundations | Identity/MFA, workload roles, private endpoints/DNS, image supply, certificate custody, audit/health and budgets | Both, with cloud-managed services | Entra ID, managed identities, internal Container Apps environment, ACR, Key Vault, Application Insights/Monitor/Workbooks and Cost Management |
@@ -227,6 +232,7 @@ flowchart TB
     Diagnostics["Azure Firewall / VPN Diagnostics"]
     Security["Native Security Integration"]
     Evidence["Evidence and Detection"]
+    IQ["Utility IQ Layer<br/>Meaning / relationships / grounded context via scoped API"]
     Agents["Four Agents"]
     Portal["Private Operator Portal"]
     CloudVPN --> Ingestion
@@ -234,7 +240,8 @@ flowchart TB
     Defender --> Security
     Diagnostics -->|"Own logs via diagnostic settings"| Evidence
     Security --> Evidence
-    Evidence --> Agents
+    Evidence --> IQ
+    IQ --> Agents
     Agents --> Portal
   end
 
@@ -572,7 +579,37 @@ failure; local safety/control must not depend on Azure sign-in availability.
 In the emulation, loss of the monitoring platform can be tested independently;
 a provider-wide Azure outage can still stop the Azure-hosted "local" VMs.
 
-## 8. Telemetry contracts and evidence quality
+## 8. Data collection, evidence quality and Utility IQ
+
+### 8.1 Data collection types
+
+All collection below is **proposed, not deployed**. Select feeds according to
+each utility's equipment, permissions, supported connectors and licensing.
+No single collector receives every type, and not every record belongs in
+Log Analytics.
+
+| Data type | Examples | Source / collection | Intended destination |
+|---|---|---|---|
+| Water-process telemetry | Tank level, chlorine, pump state, units, quality and observation time | Read-only PLC/historian/vendor adapter through edge collector and relay | Selected observations in utility Log Analytics process tables; latest observed snapshots in utility state storage |
+| HMI activity audit | Application sign-in/session, requested setpoint, old/new value, result and readback | Authenticated HMI audit through edge gateway | Utility Log Analytics audit tables; referenced evidence where needed |
+| Host operating-system logs | Successful/failed logons, RDP access, system/application errors and enabled audit events | Per-PC AMA; supported Linux collection where configured; business-PC feed remains conditional/context-only | Approved Monitor tables selected by DCR |
+| Endpoint security evidence | Malware alerts and selected suspicious program, file and network activity | Supported Defender for Endpoint onboarding and cloud integration | Defender service; selected supported evidence/alerts through Sentinel integration, not automatically every raw event |
+| Cloud identity events | Entra sign-ins, MFA/Conditional Access outcomes and available identity-risk signals | Supported Entra connector with approved tenant permissions/licensing | Utility Sentinel workspace |
+| Firewall network logs | Allowed/blocked connections, addresses, ports and rule matches | Azure diagnostic settings in this lab; supported CEF/Syslog/API connector at a real site | Utility workspace, preserving source-resource identity |
+| VPN diagnostics | Human connection/authentication records, tunnel status and supported route diagnostics | Azure VPN diagnostic settings; correlate with Entra events | Approved workspace; site-tunnel records do not identify a human |
+| Collection and platform health | Heartbeats, stale readings, outbox backlog, delivery failures and agent/API errors | Gateway/agent instrumentation and Azure monitoring | Monitor/Application Insights and approved workspace tables/alerts |
+| Asset and configuration context | Inventory, tag mappings, scaling/units, thresholds, account/address mappings and relationships | Reviewed, versioned utility onboarding configuration | Utility-scoped configuration/context records in existing state/case stores; queryable views where needed |
+| Agent and incident audit | Findings, evidence references, tool calls, case changes, approvals and sharing outcomes | Our Azure agent platform, portal and case API; not equipment telemetry | Durable case history in Cosmos DB, evidence in Blob and selected operational audit in Monitor; see section 9.1 |
+| Approved knowledge documents | Runbooks, equipment procedures, response plans and verified escalation contacts | Authorized document onboarding with versions and access controls | Approved Blob sources and utility-scoped AI Search indexes with source citations |
+
+Log Analytics/Sentinel is the monitoring evidence and detection tier, not the
+sole store for all documents, transactional cases or every raw process sample.
+A future higher-volume process-history store can sit behind the same query API
+if measured requirements justify it; no additional store is selected here.
+In this lab, process values remain simulated even when PLC reads and protocol
+exchanges are real. Native OS/cloud evidence must come from the actual source.
+
+### 8.2 Telemetry contracts and evidence quality
 
 | Family | Proposed normalization | Original evidence |
 |---|---|---|
@@ -601,6 +638,105 @@ batching/change thresholds and heartbeats. Validate ingestion/freshness targets
 under load before claiming a live latency guarantee. The portal shows actual
 last-observed time, stale/unknown states and no invented animation progression.
 Missing or invalid readings must not silently become zero or "normal."
+
+### 8.3 Utility IQ layer: what, why and how
+
+#### What it is
+
+**Utility IQ is the proposed shared context layer between evidence/knowledge and
+the four agents.** Log Analytics holds observations and events; IQ gives them
+utility-specific meaning, reviewed relationships and retrievable evidence.
+It is a logical capability implemented through the existing utility API,
+configuration/context records, bounded queries and knowledge retrieval.
+It does not add a fifth agent, VM, protocol gateway or mandatory graph database.
+
+The shared vocabulary includes Utility, Site, Asset, Tank, Pump, PLC, HMI, PC,
+User, Session, Observation, Alert and Incident. Relationships describe, for
+example, which PLC controls a pump and which HMI accesses that PLC. A relationship
+must carry its utility scope, provenance and validity period; observed sessions
+and reviewed equipment mappings are not interchangeable with inferred links.
+
+#### Why it is needed
+
+Separate logs do not explain which physical process an endpoint alert could
+affect. IQ links process observations, access evidence and approved procedures
+so all agents use consistent asset names, units and context. This enables
+cross-domain investigation without requiring every utility to replace its
+equipment or use the same source tables.
+
+Reuse the same vocabulary, API/tool contracts and agent code; configure each
+utility's adapters, available feeds, asset/tag mappings, thresholds, identities
+and approved runbooks. Missing sources produce explicit visibility gaps, not
+invented context. Compatibility is established by supported adapters and a
+validated onboarding matrix, not a promise of universal plug-and-play.
+
+#### How to build it
+
+| Capability | Initial implementation and invariant |
+|---|---|
+| Map and normalize | Preserve native security schemas/ASIM views and versioned process schemas. Map source asset/tag/account identifiers to stable utility-scoped entities; validate units, scaling, timestamps and quality. |
+| Maintain relationships | Use reviewed, versioned configuration/context records in existing stores. Preserve time-aware IP/account/session mappings, provenance and effective dates. Ordinary records suffice initially; a graph engine is optional. |
+| Query state and evidence | The API runs bounded parameterized queries against approved workspaces and state/case stores. Return evidence IDs, observation/ingestion times, freshness, query window and unavailable-feed warnings. |
+| Retrieve approved knowledge | Use utility-authorized AI Search retrieval over approved documents, returning document/version references and citations. Treat logs and retrieved text as untrusted evidence, not instructions or permission grants. |
+| Correlate and investigate | Deterministic queries/rules detect conditions and event sequences; agents investigate bounded evidence bundles. Keep observed facts, hypotheses and unknowns distinct; temporal proximity alone does not prove causation or attack. |
+| Enforce and audit | Authenticate the caller and bind utility/role/tool scope before retrieval. Enforce document permissions, query limits and case authorization server-side; record decisions and denied/failed calls as described in section 9.1. |
+
+For example, rising chlorine after an HMI setpoint change can be linked to the
+affected PLC, HMI session and available remote-access/endpoint evidence. The
+agent must identify missing attribution, sensor quality or maintenance context
+and cannot conclude malicious activity solely from the sequence. Operator Coach
+retrieves approved verification steps; Response Coordinator prepares the case.
+No IQ or agent path commands equipment or automatically contains critical hosts.
+
+#### IQ logical diagram
+
+Arrows show authorized context flow, not new network connections or unrestricted
+agent access. Every query/retrieval is mediated by the utility API. Deterministic
+detection continues independently when the model or IQ enrichment is unavailable.
+
+```mermaid
+flowchart TB
+  Logs["Log Analytics / Sentinel<br/>Selected process, HMI, host, identity and network evidence"]
+  Context["Reviewed utility configuration<br/>Assets / relationships / thresholds / valid-time mappings"]
+  Knowledge["Approved documents / AI Search<br/>Runbooks / procedures / source versions"]
+  Cases["Cosmos DB / Blob<br/>Cases / approvals / referenced evidence"]
+  subgraph IQ["UTILITY IQ - logical capability in the existing API and stores"]
+    Gate["Utility-scoped API<br/>Authenticate / authorize / bound each tool request"]
+    Meaning["Shared vocabulary and mappings<br/>Separate schemas / units / provenance / freshness"]
+    Bundle["Evidence-linked context<br/>Observed facts / hypotheses / missing data / citations"]
+    Gate --> Meaning
+    Meaning --> Bundle
+  end
+  Logs --> Gate
+  Context --> Gate
+  Knowledge --> Gate
+  Cases --> Gate
+  Bundle --> Agents["Four advisory agents<br/>Assess / coach / investigate / coordinate"]
+  Agents --> Portal["Private portal<br/>Human review / authorized case changes and sharing"]
+  Portal --> Audit["Durable agent and incident audit<br/>Actor / evidence / approval / actual outcome"]
+  Gate -->|"Tool access / authorization outcomes"| Audit
+  Agents -->|"Task / findings"| Audit
+  Logs --> Rules["Deterministic detection and feed-health alerts"]
+```
+
+#### Relationship to Microsoft IQ and IoT Hub
+
+Here, "Utility IQ" names our architectural capability, not a claim that Microsoft
+IQ products have been provisioned. The initial design keeps the existing
+Container Apps agents, scoped API, Log Analytics, Cosmos DB/Blob and AI Search.
+
+| Optional product | Potential role and adoption boundary |
+|---|---|
+| Fabric IQ | Shared business ontology and relationships if Fabric is adopted. Requires supported source integration/data bindings; it does not automatically interpret Log Analytics. The ontology is documented as preview; validate availability, capacity, isolation and cost before selection. |
+| Foundry IQ | Reusable permission-aware knowledge retrieval over approved sources, backed by Azure AI Search. Complements live telemetry tools; supported ACL behavior and GA/preview availability depend on source/feature/API version and must be validated. |
+| Work IQ | Optional authorized Microsoft 365 collaboration/work context; not required for process or cybersecurity monitoring. |
+| IoT Hub | Optional device/gateway identities, provisioning integration, twins or messaging when justified. Not the IQ layer or a Modbus/OPC UA translator; adapters and normalization are still required. No cloud equipment commands are introduced. |
+
+Implement contracts, mappings and bounded evidence tools first, then connect
+agents. Evaluate known incidents, benign lookalikes, stale/missing feeds,
+incorrect mappings, evidence attribution and cross-utility access denials before
+claiming reliable reasoning. Adopt additional IQ services only when their
+capabilities justify integration effort, licensing/capacity and operational cost.
 
 ## 9. Agent responsibilities, permissions and durable handoffs
 
@@ -631,6 +767,35 @@ case container and evidence permissions; no PLC credentials. Keep per-utility
 indexes and enforce retrieval authorization at the API. Separate services/accounts
 are required if a customer's isolation or residency policy demands a harder
 boundary than shared-service authorization.
+
+### 9.1 Agent and incident audit: events and records
+
+This is the activity history of **our Azure solution**, not another utility
+equipment feed. The case API is the controlled backend through which agents and
+the portal retrieve/update incident records, enforce permissions and record
+transitions. It distinguishes what was observed, what AI recommended, what a
+human authorized and what actually happened.
+
+| Event | What gets recorded |
+|---|---|
+| Agent investigates an alert or question | Utility, task/case/alert IDs, agent/version, initiating actor, time, authorized scope, evidence references, findings and explicit uncertainties |
+| Agent calls a tool | Tool/version, redacted bounded arguments or query/window reference, caller and utility, authorization result, start/end time, returned evidence IDs, success/failure/denial and error details |
+| Agent recommends an action | Proposed guidance, supporting evidence/runbook versions, assumptions and missing data; recommendation status, not executed remediation |
+| Case is opened or updated | Incident ID, actor, previous/new state, owner, reason, timestamp and concurrency/version information |
+| Human approves or rejects sharing | Named approver, decision/time, exact content or immutable content reference/hash, evidence snapshot, verified recipients, authorized channel and expiry |
+| Report is submitted or sharing is attempted | Human submission record or approved integration attempt, linked approval, recipients/channel, attempt/deduplication ID and actual sent/failed/unknown result with receipt where available |
+| Worker retries, restarts or exhausts work | Task/attempt IDs, retry reason/count, recovery outcome or poison-queue reference; uncertain delivery is held for review rather than blindly resent |
+| Case closes or reopens | Authorized actor, reason, verification evidence, remaining uncertainty and time; closure does not certify physical recovery without supporting observations |
+
+Preserve durable case/approval history in Cosmos DB, referenced evidence in Blob
+and selected operational tool/worker audit in Monitor/Application Insights.
+Restrict history mutation/deletion and retention through reviewed access and
+retention policies; ordinary application records are not automatically immutable.
+Correlate by server-issued utility/task/case IDs. Redact credentials, tokens and
+unnecessary personal data; do not log hidden model reasoning. An approval is not
+a delivery receipt, and an API success is not proof of physical equipment action.
+Initial external reports remain human-reviewed/submitted packages as specified
+in section 10; this table does not add an automatic reporting integration.
 
 ## 10. Incident coordination and human approvals
 
@@ -732,5 +897,8 @@ and isolation proof last. No infrastructure is provisioned by this document.
 - [Microsoft Entra sign-in for Windows VMs in Azure: requirements and limitations](https://learn.microsoft.com/en-us/entra/identity/devices/howto-vm-sign-in-azure-ad-windows)
 - [Azure Monitor Logs Ingestion API](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/logs-ingestion-api-overview)
 - [Microsoft Sentinel ASIM](https://learn.microsoft.com/en-us/azure/sentinel/normalization)
+- [Microsoft IQ capabilities](https://learn.microsoft.com/en-us/microsoft-iq/)
+- [Fabric IQ and ontology](https://learn.microsoft.com/en-us/fabric/iq/overview)
+- [Foundry IQ knowledge bases and availability](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/what-is-foundry-iq)
 - [OGC SensorThings API](https://www.ogc.org/standards/sensorthings/)
 - [Eclipse Sparkplug specification](https://sparkplug.eclipse.org/specification/)

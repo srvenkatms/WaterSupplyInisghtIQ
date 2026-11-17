@@ -143,6 +143,16 @@
   <path d="M1305 940H1165" class="security-line"/>
   </g>
 
+  <g id="iq-layer">
+  <title>Utility IQ shared context layer</title>
+  <desc>The existing utility API combines authorized evidence queries, reviewed asset relationships and approved knowledge. This logical capability supports the four agents without new equipment-control paths or an additional deployment service.</desc>
+  <path d="M915 1370V1400" class="line"/>
+  <rect x="35" y="1400" width="1730" height="100" rx="14" fill="#fff8e9" stroke="#b48b39" stroke-width="2"/>
+  <text x="55" y="1428" class="heading">UTILITY IQ LAYER - shared context via the existing utility API and stores</text>
+  <text x="55" y="1458" class="small">WHAT: utility / assets / users / sessions / relationships + approved runbooks. WHY: connect process and security evidence consistently.</text>
+  <text x="55" y="1485" class="small">HOW: scoped queries + reviewed mappings + citations / freshness / missing-data warnings. Logical capability, not another agent or ingestion gateway.</text>
+  </g>
+
   <g id="agent-layer" transform="translate(0 440)">
   <rect x="35" y="1090" width="1730" height="285" rx="16" fill="#eff9f3" stroke="#4f9271" stroke-width="2"/>
   <text x="55" y="1124" class="heading">MULTI-AGENT PLATFORM - Container Apps agents, Foundry model inference</text>
@@ -169,8 +179,8 @@
   <path d="M1140 1235V1265H490V1280" class="line"/>
   <path d="M1590 1235V1272H555V1280" class="line"/>
   <path d="M585 1315H665" class="line"/>
-  <path d="M55 1315H20V1000H915V930" class="line"/>
-  <text x="950" y="1067" class="small">API queries evidence; agents have no direct PLC or broad data credentials</text>
+  <path d="M55 1315H20V1075H915V1060" class="line"/>
+  <text x="950" y="1080" class="small">API queries IQ context; no direct PLC or broad data credentials</text>
   </g>
 
   <g id="operator-layer" transform="translate(0 540)">
