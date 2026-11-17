@@ -1,5 +1,27 @@
 # Target physical architecture: Azure-hosted utility and multi-agent platform
 
+## Index
+
+| Section | Contents |
+|---|---|
+| [1. Status and scope](#1-status-and-scope) | Proposed scope and [conceptual architecture](#conceptual-architecture-who-reads-forwards-analyzes-and-controls) |
+| [2. Physical deployment overview](#2-physical-deployment-overview) | [Logical architecture companion](#logical-architecture-companion), [layered components](#21-layered-physical-architecture-and-components) and [deployment diagram](#22-layered-deployment-diagram) |
+| [3. Resource groups and network placement](#3-resource-groups-and-network-placement) | Resource isolation, subnets, VPN routing and private DNS |
+| [4. Emulated on-premises inventory](#4-emulated-on-premises-inventory) | Four site VMs, firewall and two VPN gateways |
+| [5. Cloud platform inventory and runtime choice](#5-cloud-platform-inventory-and-runtime-choice) | Container Apps, model inference, evidence and supporting services |
+| [6. Allowed data and administration flows](#6-allowed-data-and-administration-flows) | Approved connections, protocols and authorization boundaries |
+| [7. Local operation and MFA](#7-local-operation-and-mfa) | Operator/business access, identity and offline operation |
+| [8. Data collection, evidence quality and Utility IQ](#8-data-collection-evidence-quality-and-utility-iq) | Data, evidence contracts and shared intelligence context |
+| [8.1 Data collection types](#81-data-collection-types) | Types, examples, sources and destinations |
+| [8.2 Telemetry contracts and evidence quality](#82-telemetry-contracts-and-evidence-quality) | Schemas, provenance, delivery, freshness and simulation labels |
+| [8.3 Utility IQ layer: what, why and how](#83-utility-iq-layer-what-why-and-how) | [What](#what-it-is), [why](#why-it-is-needed), [how](#how-to-build-it), [IQ logical diagram](#iq-logical-diagram) and [Microsoft IQ / IoT Hub relationship](#relationship-to-microsoft-iq-and-iot-hub) |
+| [9. Agent responsibilities, permissions and durable handoffs](#9-agent-responsibilities-permissions-and-durable-handoffs) | Four agent roles, bounded tools and persistent workflow state |
+| [9.1 Agent and incident audit](#91-agent-and-incident-audit-events-and-records) | Events and what gets recorded |
+| [10. Incident coordination and human approvals](#10-incident-coordination-and-human-approvals) | Case lifecycle, sharing authorization and delivery outcomes |
+| [11. Reuse across real utilities](#11-reuse-across-real-utilities) | Configuration-driven onboarding and real-site equivalents |
+| [12. Cost, deployment gates and proof](#12-cost-deployment-gates-and-proof) | Budget, implementation sequence and acceptance evidence |
+| [References](#references) | Standards and Microsoft documentation |
+
 ## 1. Status and scope
 
 **Status: proposed design, not provisioned or implemented.**
