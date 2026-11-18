@@ -9,14 +9,17 @@
 | [3. Resource groups and network placement](#3-resource-groups-and-network-placement) | Resource isolation, subnets, VPN routing and private DNS |
 | [4. Emulated on-premises inventory](#4-emulated-on-premises-inventory) | Four site VMs, firewall and two VPN gateways |
 | [5. Cloud platform inventory and runtime choice](#5-cloud-platform-inventory-and-runtime-choice) | Container Apps, model inference, evidence and supporting services |
+| [5.1 Perception availability and adoption gate](#51-perception-availability-and-adoption-gate) | GA versus preview, blue-only scope and tenant prerequisites |
 | [6. Allowed data and administration flows](#6-allowed-data-and-administration-flows) | Approved connections, protocols and authorization boundaries |
 | [7. Local operation and MFA](#7-local-operation-and-mfa) | Operator/business access, identity and offline operation |
 | [8. Data collection, evidence quality and Utility IQ](#8-data-collection-evidence-quality-and-utility-iq) | Data, evidence contracts and shared intelligence context |
 | [8.1 Data collection types](#81-data-collection-types) | Types, examples, sources and destinations |
 | [8.2 Telemetry contracts and evidence quality](#82-telemetry-contracts-and-evidence-quality) | Schemas, provenance, delivery, freshness and simulation labels |
-| [8.3 Utility IQ layer: what, why and how](#83-utility-iq-layer-what-why-and-how) | [What](#what-it-is), [why](#why-it-is-needed), [how](#how-to-build-it), [IQ logical diagram](#iq-logical-diagram) and [Microsoft IQ / IoT Hub relationship](#relationship-to-microsoft-iq-and-iot-hub) |
+| [8.3 Utility IQ layer: what, why and how](#83-utility-iq-layer-what-why-and-how) | [What](#what-it-is), [ontology and data relationships](#ontology-and-data-relationships), [why](#why-it-is-needed), [how](#how-to-build-it), [IQ logical diagram](#iq-logical-diagram), [Microsoft IQ / IoT Hub relationship](#relationship-to-microsoft-iq-and-iot-hub) and [Fabric option and overhead](#fabric-ontology-option-and-overhead) |
 | [9. Agent responsibilities, permissions and durable handoffs](#9-agent-responsibilities-permissions-and-durable-handoffs) | Four agent roles, bounded tools and persistent workflow state |
 | [9.1 Agent and incident audit](#91-agent-and-incident-audit-events-and-records) | Events and what gets recorded |
+| [9.2 Agentic flow: triggers, dispatch and reaction](#92-agentic-flow-triggers-dispatch-and-reaction) | How agents learn about changes, when they run, IQ context and human follow-up |
+| [9.3 Process and cyber investigation lanes](#93-process-and-cyber-investigation-lanes) | Perception boundary, evidence correlation, concurrent actions and case ownership |
 | [10. Incident coordination and human approvals](#10-incident-coordination-and-human-approvals) | Case lifecycle, sharing authorization and delivery outcomes |
 | [11. Reuse across real utilities](#11-reuse-across-real-utilities) | Configuration-driven onboarding and real-site equivalents |
 | [12. Cost, deployment gates and proof](#12-cost-deployment-gates-and-proof) | Budget, implementation sequence and acceptance evidence |
@@ -35,7 +38,8 @@ The design has two environments:
 - **Utility site:** local process control, HMI, Windows operator, process
   collection and industrial DMZ.
 - **Cloud service:** telemetry ingestion, security monitoring, evidence,
-  operator guidance and four cooperating agents.
+  operator guidance and four utility advisory agents, complemented by selected
+  Microsoft-managed Perception blue-team capabilities after the adoption gate.
 
 The Target has **one secured architecture, not Route A and Route B**. All remote
 human access uses VPN with Entra ID and MFA; the Target portal, HMI, VMs and data
@@ -52,6 +56,13 @@ design assumption pending review of the user's abbreviated wording.
 PLC control remains local and operator-operated. Cloud agents cannot write PLC
 registers, operate the HMI, administer VMs or automatically isolate critical hosts.
 This design extends beyond the implemented Level 1 lab.
+
+**Perception revision (November 18, 2026):** retain the four custom utility
+agents, but narrow Monitoring to process anomalies, evidence quality and
+operational impact. Perception owns supported cyber triage/investigation when
+enabled; do not build a duplicate generic cyber investigator. Initial case
+handoff is human-reviewed; automated external integration is preview-dependent.
+Neither Perception nor any Target resources are enabled by this document.
 
 ### Conceptual architecture: who reads, forwards, analyzes and controls
 
@@ -101,15 +112,19 @@ flowchart TB
     EvidenceContext["Utility-scoped evidence and cases<br/>Separate schemas + asset context + approved runbooks"]
     UtilityIQ["Utility IQ layer<br/>Shared meaning, relationships and grounded context via scoped API"]
     subgraph AgentConcept["FOUR COOPERATING AGENTS"]
-      Exposure["Exposure Assessor<br/>Find exposure and weak access"]
+      Exposure["Exposure Assessor<br/>Read-only utility configuration review"]
       Coach["Operator Coach<br/>Explain approved next steps"]
-      Monitor["Monitoring Agent<br/>Investigate attack indicators"]
+      Monitor["Monitoring Agent<br/>Process anomalies / quality / operational impact"]
       Coordinator["Response Coordinator<br/>Organize incident response"]
     end
     PrivatePortal["Private operator portal<br/>Findings / guidance / alerts / approvals"]
+    Perception["Microsoft-managed Perception blue<br/>Supported cyber triage / investigation<br/>Tenant adoption gate; no plant actions"]
+    CyberHandoff["Reviewed cyber finding via case API<br/>Human submission initially<br/>Automated adapter gated on preview validation"]
     WaterReceiver --> EvidenceContext
     SecurityReceiver --> EvidenceContext
     CloudSecurity --> SecurityReceiver
+    SecurityReceiver -->|"Supported security coverage only"| Perception
+    Perception --> CyberHandoff --> EvidenceContext
     ResourceDiagnostics -->|"Own resource logs"| EvidenceContext
     EvidenceContext --> UtilityIQ
     UtilityIQ --> Exposure
@@ -127,7 +142,7 @@ flowchart TB
   HumanConnection -->|"Authenticated private access"| PrivatePortal
   PrivatePortal -.->|"Advice and alerts, not equipment commands"| LocalOperator
   PrivatePortal --> Approval["Authorized human review and approval"]
-  Approval --> Contacts["Utility / designated state contacts / CISA"]
+  Approval --> Contacts["Human-reviewed packages<br/>Utility / designated state contacts / CISA"]
 ```
 
 The two VPN boxes are different functions: people authenticate with Entra ID/MFA;
@@ -155,7 +170,8 @@ subject to verified recipients and case-specific authorization.
 
 [Open the Target logical architecture SVG](target-logical-architecture.svg).
 This grouped-box view shows local control, collection/transport, evidence,
-four agents and private operator access. It describes the proposed Target,
+four utility agents, the separately managed Perception blue lane and private
+operator access. It describes the proposed Target,
 not the deployed Route A/B labs. Native endpoint/identity integrations retain
 their supported paths; not every log traverses the edge collection application.
 The firewall-to-Microsoft-services arrow represents approved outbound PC
@@ -188,7 +204,7 @@ the corresponding component would run at a real site.
 | 4. Site network protection and tunnel | Firewall policy, NSGs, inspected routes and site VPN termination | Utility/on-premises boundary | Azure Firewall Standard and site Azure VPN Gateway; managed services, not extra utility VMs |
 | 5. Private cloud entry and ingestion | Platform VPN termination, private DNS, monitoring private-link scope, DCE/DCRs and native security connectors | Cloud | Platform Azure VPN Gateway, Private DNS Resolver and Azure Monitor ingestion resources; scoped private HTTPS paths |
 | 6. Evidence, detection and knowledge | Process/security records, deterministic detections, cases, evidence, work/poison queues, approved runbooks and IQ context/relationships | Cloud | Utility Log Analytics/Sentinel, Cosmos DB, Blob/Queue Storage and Azure AI Search; IQ logic uses the existing utility API and stores |
-| 7. Agent reasoning and authorized tools | Exposure Assessor, Operator Coach, Monitoring Agent, Response Coordinator; scoped query/case API; model inference | Cloud | Four agent Container Apps, `ca-swutgt-u001-api` and Foundry models; agents use the API for evidence/tools |
+| 7. Agent reasoning and authorized tools | Utility configuration assessor, Operator Coach, process/impact Monitoring Agent, Response Coordinator; scoped API; separate Perception blue cyber lane | Cloud | Four custom agent Container Apps, `ca-swutgt-u001-api` and Foundry inference; Perception is a Microsoft-managed service, not another Container App |
 | 8. Operator insights and coordination | Private portal, findings, alerts, guidance, approval and incident packages | Cloud, accessed by authorized people over VPN | `ca-swutgt-portal`; human-approved utility/state/CISA communication, not equipment control |
 | Cross-cutting foundations | Identity/MFA, workload roles, private endpoints/DNS, image supply, certificate custody, audit/health and budgets | Both, with cloud-managed services | Entra ID, managed identities, internal Container Apps environment, ACR, Key Vault, Application Insights/Monitor/Workbooks and Cost Management |
 
@@ -196,6 +212,8 @@ the corresponding component would run at a real site.
 gateways and firewall are additional managed services, not included in the VM
 count. A real site's firewall may also terminate its VPN; this Azure emulation
 uses separate services. IoT Hub remains optional, not an extra required layer.
+Perception is outside these VM/Container App counts and has separate entitlement,
+usage and governance requirements; see section 5.1.
 
 ### 2.2 Layered deployment diagram
 
@@ -255,13 +273,17 @@ flowchart TB
     Security["Native Security Integration"]
     Evidence["Evidence and Detection"]
     IQ["Utility IQ Layer<br/>Meaning / relationships / grounded context via scoped API"]
-    Agents["Four Agents"]
+    Agents["Four utility advisory agents<br/>Process / exposure configuration / coaching / cases"]
+    Perception["Microsoft-managed Perception blue<br/>Supported cyber investigation; adoption gate"]
+    Handoff["Human-reviewed case handoff<br/>Preview adapter only after validation"]
     Portal["Private Operator Portal"]
     CloudVPN --> Ingestion
     Ingestion --> Evidence
     Defender --> Security
     Diagnostics -->|"Own logs via diagnostic settings"| Evidence
     Security --> Evidence
+    Security -->|"Supported security evidence"| Perception
+    Perception --> Handoff --> Evidence
     Evidence --> IQ
     IQ --> Agents
     Agents --> Portal
@@ -458,9 +480,11 @@ user's Microsoft 365 endpoint license covers these Windows Server VMs.
 
 ## 5. Cloud platform inventory and runtime choice
 
-Use **four container-hosted agents calling Microsoft Foundry models** for the
-initial Target. Each agent is a separate Container App with its own identity.
-This keeps private tool access and permissions explicit.
+Use **four custom container-hosted utility agents calling Microsoft Foundry
+models**. Each agent is a separate Container App with its own identity.
+Perception's blue-team agents run in the Microsoft-managed security service,
+not inside these containers or our Foundry agent runtime. This keeps private
+tool access, cyber ownership and permissions explicit.
 
 This is one runtime choice, not a second simultaneous deployment into Foundry
 Agent Service. A later move to Foundry-managed agent hosting requires equivalent
@@ -473,19 +497,20 @@ networking, identity, evaluation and approval controls.
 | Azure Container Apps environment | One internal VNet-integrated workload-profile environment, Consumption profile | No public environment ingress; common container hosting |
 | `ca-swutgt-portal` | Private HTTPS ingress reachable over VPN; Entra application authorization | Insights, evidence, coaching, cases and approvals; no Target PLC control buttons |
 | `ca-swutgt-u001-api` | Internal ingress; authenticated users/services; utility-scoped identity | Typed query tools, case changes, audit and evidence retrieval |
-| `ca-swutgt-assessor` | Queue-driven worker; no public ingress | Exposure Assessor |
+| `ca-swutgt-assessor` | Queue-driven worker; no public ingress | Utility Exposure Assessor: read-only configuration/coverage review, not active testing or generic vulnerability investigation |
 | `ca-swutgt-coach` | Queue-driven worker; no public ingress | Operator Coach |
-| `ca-swutgt-monitor` | Queue-driven worker; no public ingress | Monitoring Agent |
+| `ca-swutgt-monitor` | Queue-driven worker; no public ingress | Process and Operational Impact Monitoring Agent; consumes reviewed cyber findings as evidence, not a duplicate cyber investigator |
 | `ca-swutgt-coordinator` | Queue-driven worker; no public ingress | Response Coordinator |
 | Container Apps scheduled jobs | Bounded exposure/monitoring dispatch; explicit schedules when approved | Admit work; do not continuously run every agent against every sample |
 | Foundry resource/project and model deployments | Region, model, quota and private-access support validated before selection | Model inference; controlled model versions and evaluation |
 | Azure AI Search | Approved runbooks; per-utility indexes and broker-enforced access | Cited guidance; not the source of live process state |
-| Azure Cosmos DB for NoSQL | Utility-specific case containers; case/event concurrency controls | Durable cases, approvals, assignments, task deduplication and workflow state |
+| Azure Cosmos DB for NoSQL | Utility-scoped context/model records and case containers; version/concurrency controls | Canonical entities, mappings, typed relationships, durable cases, approvals, task deduplication and workflow state; schema definitions also live in version-controlled code |
 | Azure Storage | Per-utility evidence/state containers; per-agent work and poison queues | Latest observed snapshots, evidence, durable delivery and explicit failed-work handling |
 | Azure Container Registry | Private image access; compatible private-link tier | Reviewed, immutable application images |
 | Log Analytics + Sentinel | Separate Target utility workspace, native connectors, normalized security views and process/audit tables | Detection, investigation and incident records |
 | Azure Monitor DCRs / DCE / private-link scope | Process/HMI ingestion, AMA collection and monitoring private endpoints | Enforce schemas, identities and destinations |
 | Defender XDR / endpoint integration | Actual onboarding and chosen alert/raw-event coverage | Endpoint investigation; alerts do not imply all raw events are ingested |
+| Microsoft Perception blue capabilities | Selected Alert Triage and Attack Investigation playbooks, subject to section 5.1 | Managed cyber investigation over supported evidence; human-reviewed case handoff initially; no implicit access to custom PLC tables or Cosmos relationships |
 | Azure Key Vault | Scoped certificate/secret use where unavoidable | Rotation and key custody; no PLC/HMI credentials for agents |
 | Application Insights / Monitor / Workbooks | Filtered agent/tool traces, health alerts and operator views | Reliability, audit, freshness and usage visibility |
 | Private endpoints / DNS / NSGs / route tables | Required per service, including return paths and DNS resolution | Private data access; storage public access remains disabled |
@@ -503,6 +528,61 @@ documented, source-specific outbound allowances. This is not permission to
 expose a Target application. No data service is made public to bypass a
 private-network error. A supported VPN client and browser are access clients,
 not locally hosted lab servers; no client installation is performed by this design.
+
+### 5.1 Perception availability and adoption gate
+
+**Availability checked November 18, 2026:** Microsoft's November 17 announcement
+states that Microsoft Perception is generally available. Feature status is not
+uniform; use the following distinctions rather than calling every integration GA.
+
+| Capability | Announced status | Target decision |
+|---|---|---|
+| Microsoft Perception | GA | Candidate managed cyber service; not enabled or tenant-verified here |
+| Blue Alert Triage, Attack Investigation, Detection Authoring and Threat Intelligence agents | GA | Select triage/investigation initially; detection authoring and threat-intelligence workflows are not required or automatically enabled |
+| External MCP/API integrations with SIEM/SOAR/ITSM workflows | Preview | Do not make our automatic case handoff a GA dependency; implement only after validating the exact contract |
+| Green Posture Prioritization / Risk Reduction | GA / public preview respectively | Not selected for this Target revision; no automatic remediation or green handoffs |
+| Red testing capabilities | Status varies by capability | Not selected; no active testing against operational utility assets |
+
+Sources: [Microsoft GA and feature-status announcement](https://www.microsoft.com/en-us/security/blog/2026/11/17/security-for-the-agentic-era-powered-by-microsoft-perception/)
+and [Perception playbook details](https://techcommunity.microsoft.com/blog/perception-blog/whats-new-with-microsoft-perception-at-ignite-2026/4571834).
+GA does not establish entitlement, rollout, region/cloud support or availability
+in our CPI tenant. Before activation, verify tenant access, supported data/alert
+coverage, permissions, residency/retention, consumption pricing and approved
+budget. Perception and Security Copilot chat are priced separately; do not assume
+existing model or Microsoft 365 entitlement includes Perception usage.
+
+**Blue-only, analysis-only is an acceptance requirement, not an assumed product
+toggle.** Validate selected playbooks, identities, roles, action policies and
+handoffs. They must not acquire PLC/HMI credentials, administer plant hosts,
+isolate critical endpoints, revoke operational identities, change firewall rules
+or invoke red/green remediation paths. Review existing Defender automatic
+response policies too; choosing a blue playbook alone does not disable them.
+If enforceable restrictions cannot be demonstrated, do not enable Perception
+against critical plant scope; retain analyst-led security investigation.
+
+The initial integration is an authorized analyst reviewing a Perception result
+in Microsoft's supported security experience, then recording a minimized finding
+and permitted source/session/incident references in the private Target case API.
+Record author, provenance, source version/time, review time and unavailable
+evidence. Opening a portal link requires the user's separate Microsoft-service
+authorization; it does not grant Target service access to the underlying data.
+Microsoft's security portal is a separate SaaS experience, not our VPN-hosted
+portal and not a new public Target application endpoint.
+
+An automated adapter is a later, gated mode inside the existing API/scheduled-job
+boundary, not a newly counted agent or permanent VM. Validate documented
+authentication, tenant scope, result retrieval, update/expiry semantics,
+deduplication and rate limits. Use approved outbound HTTPS from the platform
+where supported; do not assume Private Link or inbound webhook access. If the
+contract requires unsupported connectivity, retain human handoff rather than
+exposing the private API. Logs and imported findings remain untrusted evidence,
+not instructions or permission grants.
+
+Perception unavailable or unsupported does not make the utility healthy:
+show cyber investigation as unavailable/pending, route supported security alerts
+to the authorized analyst, and continue process detection/notifications. Do not
+silently promote our process Monitoring Agent into an unrestricted replacement
+cyber agent. Automatic correlation is not claimed before adapter acceptance.
 
 ## 6. Allowed data and administration flows
 
@@ -531,6 +611,8 @@ Default-deny all other site, cross-zone and platform-to-site connections.
 | Portal / agent -> utility API | Authenticated HTTPS | Server-issued utility scope, role, purpose and bounded task/query |
 | Agent -> Foundry inference | Authenticated HTTPS | Approved deployment, input limits and telemetry redaction |
 | Utility API -> data/search/case services | HTTPS / supported private SDK paths | Utility-scoped authorization; agents have no direct unrestricted data credentials |
+| Authorized analyst -> Microsoft security SaaS | Supported HTTPS and Microsoft-service authentication | Separate approved access policy; review Perception results, then submit minimized evidence to the private case API over the Target VPN |
+| Platform API/job adapter -> documented Perception integration | Approved outbound HTTPS only if supported and validated | Preview-gated, tenant-scoped result retrieval; no inbound public webhook or direct Perception access to our stores/site |
 
 The gateway validates process/audit transfer at the application level; its
 co-located collector and relay are not independent host/network boundaries.
@@ -616,6 +698,7 @@ Log Analytics.
 | HMI activity audit | Application sign-in/session, requested setpoint, old/new value, result and readback | Authenticated HMI audit through edge gateway | Utility Log Analytics audit tables; referenced evidence where needed |
 | Host operating-system logs | Successful/failed logons, RDP access, system/application errors and enabled audit events | Per-PC AMA; supported Linux collection where configured; business-PC feed remains conditional/context-only | Approved Monitor tables selected by DCR |
 | Endpoint security evidence | Malware alerts and selected suspicious program, file and network activity | Supported Defender for Endpoint onboarding and cloud integration | Defender service; selected supported evidence/alerts through Sentinel integration, not automatically every raw event |
+| Perception cyber findings | Reviewed triage verdict, investigation summary, affected entity IDs and permitted source/session/incident references | Authorized analyst handoff initially; documented external adapter only after preview acceptance | Utility case/evidence stores with provenance and source versions; selected operational audit in Monitor, not fabricated native Defender events |
 | Cloud identity events | Entra sign-ins, MFA/Conditional Access outcomes and available identity-risk signals | Supported Entra connector with approved tenant permissions/licensing | Utility Sentinel workspace |
 | Firewall network logs | Allowed/blocked connections, addresses, ports and rule matches | Azure diagnostic settings in this lab; supported CEF/Syslog/API connector at a real site | Utility workspace, preserving source-resource identity |
 | VPN diagnostics | Human connection/authentication records, tunnel status and supported route diagnostics | Azure VPN diagnostic settings; correlate with Entra events | Approved workspace; site-tunnel records do not identify a human |
@@ -678,6 +761,75 @@ example, which PLC controls a pump and which HMI accesses that PLC. A relationsh
 must carry its utility scope, provenance and validity period; observed sessions
 and reviewed equipment mappings are not interchangeable with inferred links.
 
+#### Ontology and data relationships
+
+**Utility IQ includes a utility-wide ontology/semantic layer, not just a
+PLC/sensor schema.** The ontology defines entity types, properties and permitted
+relationship types. Reviewed asset/context records populate that model with
+specific entities and relationships; observations and security findings reference
+those entities without becoming unquestioned statements about their condition.
+
+| Domain | Example entity types | Example relationships |
+|---|---|---|
+| Plant and process | Utility, Site, HMI, PLC, Pump, Sensor, Tank, Process | Site belongs to Utility; HMI accesses PLC; PLC controls Pump; Pump serves Process; Sensor measures Process |
+| Identity and security | Account, Session, SecurityFinding, Alert | Account used in Session; Session occurred on HMI; SecurityFinding references Account or HMI |
+| Operations and response | MaintenanceWindow, Procedure, Case, Evidence | MaintenanceWindow covers Asset; Procedure applies to Asset; Case references Evidence |
+
+These are typed relationships, not interchangeable arrows. "HMI accesses PLC"
+describes an approved/configured access relationship; an observed HMI session or
+setpoint write is separate, timestamped evidence. "PLC controls Pump" does not
+mean a particular command was issued or that the pump actually ran.
+
+Different sources are related through stable, utility-scoped identifiers:
+
+| Source | Native reference example | Canonical entity reference example |
+|---|---|---|
+| HMI audit | `dosing-panel-01` in the identified site's audit source | `utility-01:hmi-01` |
+| Endpoint/security evidence | Tenant and endpoint/device ID | `utility-01:hmi-01` |
+| PLC process sample | Collector, PLC endpoint, unit ID, register table and address | `utility-01:plc-01:dose-setpoint` |
+| Equipment inventory | Site and pump equipment number | `utility-01:pump-01` |
+
+Onboarding establishes these mappings from reviewed inventory, tag maps and
+verified source identifiers. Register addresses alone, similar display names
+or a current IP address are not sufficient identity keys. Resolve IP, account
+and equipment mappings for the event's time, not just the current configuration.
+Unmatched or ambiguous records remain unresolved with a visible quality warning;
+the model must not guess a join.
+
+Maintain versioned entity, source-mapping and relationship records through the
+existing scoped API and stores. Each relationship records its utility, source
+and target IDs, type, provenance/evidence reference, effective validity period
+and whether it is reviewed configuration, observed activity or an inference.
+Retain superseded versions for historical investigation. Observations retain
+source IDs, event/ingestion times, units/scaling and quality as in section 8.2.
+Utility IDs and namespaces label scope; server-side authorization enforces it.
+
+For example, the following reviewed relationships support an impact query:
+
+```text
+Security finding -> references HMI-01
+HMI-01           -> accesses PLC-01
+PLC-01           -> controls Dosing-Pump-01
+Dosing-Pump-01   -> serves Chlorination-Process-01
+Procedure-07     -> applies to Dosing-Pump-01
+```
+
+The API resolves the finding's source identifiers, follows authorized,
+time-valid relationships, retrieves bounded process trends and relevant
+maintenance/procedure records, and returns a cited evidence bundle. Agents can
+then assess potential operational relevance. The relationship path alone does
+not prove compromise, malicious commands, process impact or unsafe water.
+
+If Perception blue-team investigation is integrated later, supported security
+findings become another evidence source through a validated adapter. Utility IQ
+continues to relate security, process, identity, maintenance and case context; it
+does not shrink to PLC data. No direct Perception-to-IQ connector, custom-table
+support or automatic access to this ontology is assumed. The integration remains
+optional and unimplemented, with no equipment-write or critical-host-containment
+authority.
+Section 5.1 defines its adoption gate and initial analyst handoff; section 9.3
+defines the split between cyber investigation and utility-process interpretation.
+
 #### Why it is needed
 
 Separate logs do not explain which physical process an endpoint alert could
@@ -724,7 +876,7 @@ flowchart TB
   Cases["Cosmos DB / Blob<br/>Cases / approvals / referenced evidence"]
   subgraph IQ["UTILITY IQ - logical capability in the existing API and stores"]
     Gate["Utility-scoped API<br/>Authenticate / authorize / bound each tool request"]
-    Meaning["Shared vocabulary and mappings<br/>Separate schemas / units / provenance / freshness"]
+    Meaning["Ontology / canonical IDs / typed relationships<br/>Source bindings / units / provenance / validity / freshness"]
     Bundle["Evidence-linked context<br/>Observed facts / hypotheses / missing data / citations"]
     Gate --> Meaning
     Meaning --> Bundle
@@ -749,7 +901,7 @@ Container Apps agents, scoped API, Log Analytics, Cosmos DB/Blob and AI Search.
 
 | Optional product | Potential role and adoption boundary |
 |---|---|
-| Fabric IQ | Shared business ontology and relationships if Fabric is adopted. Requires supported source integration/data bindings; it does not automatically interpret Log Analytics. The ontology is documented as preview; validate availability, capacity, isolation and cost before selection. |
+| Fabric IQ ontology | Optional implementation of the shared semantic model, entity relationships and source bindings. Ontology is preview; bindings require supported Fabric sources, not an assumed direct Log Analytics connection. See the Fabric decision below. |
 | Foundry IQ | Reusable permission-aware knowledge retrieval over approved sources, backed by Azure AI Search. Complements live telemetry tools; supported ACL behavior and GA/preview availability depend on source/feature/API version and must be validated. |
 | Work IQ | Optional authorized Microsoft 365 collaboration/work context; not required for process or cybersecurity monitoring. |
 | IoT Hub | Optional device/gateway identities, provisioning integration, twins or messaging when justified. Not the IQ layer or a Modbus/OPC UA translator; adapters and normalization are still required. No cloud equipment commands are introduced. |
@@ -760,18 +912,89 @@ incorrect mappings, evidence attribution and cross-utility access denials before
 claiming reliable reasoning. Adopt additional IQ services only when their
 capabilities justify integration effort, licensing/capacity and operational cost.
 
+#### Fabric ontology option and overhead
+
+**Recommendation: define the ontology now, implement it with existing stores/API
+first, and keep Fabric ontology as an optional implementation.** For the initial
+small-utility Target, adding Fabric solely to relate a modest asset inventory,
+selected telemetry and cases introduces overhead before its value is proven.
+This is a deployment choice, not a limit on the semantic model's scope.
+
+As checked on November 18, 2026, Microsoft documents Fabric ontology as
+**preview**. It defines business concepts and data bindings; it is not itself a
+general-purpose telemetry store or query engine. Supported consumers query the
+bound sources. A graph execution layer and instance-data materialization are
+optional, not requirements for defining an ontology.
+
+| Choice | Benefit | Additional responsibility |
+|---|---|---|
+| Existing stores and scoped API (initial recommendation) | Reuse the planned evidence/case platform; implement explicit ID mappings and bounded relationship queries | Maintain the semantic contracts, versions, joins and review process ourselves |
+| Fabric ontology over supported Fabric sources | Shared visual semantic model, reusable definitions/bindings and supported agent/analytics experiences | Fabric-enabled capacity, tenant settings, workspace/source permissions, integration pipelines, refresh/freshness management and preview lifecycle |
+| Optional Fabric graph materialization | Evaluate richer multi-hop dependency/path queries if ordinary queries become inadequate | Additional materialization, refresh, cost and security validation; do not assume immediate consistency with source changes |
+
+**Feeding data into Fabric is a separate integration decision.** Microsoft's
+binding guide lists Fabric sources such as lakehouses, eventhouses/KQL databases,
+warehouses, SQL/mirrored databases and semantic models. Log Analytics is not
+listed as a direct ontology binding source; using KQL in both products does not
+make their stores interchangeable. Ontology can bind supported sources without
+another copy into the ontology, but making our existing evidence available to
+those sources may still require a supported export, ingestion, mirroring or
+shortcut path. Validate the specific source/path rather than assuming zero-copy
+access to Log Analytics, Cosmos DB, Blob or Perception.
+
+If Fabric is evaluated, use this bounded pattern:
+
+```text
+Reviewed inventory, mappings and relationships
+  + selected normalized process evidence
+  + authorized security-finding summaries, if integration is supported
+    -> validated Fabric integration path
+    -> supported Fabric source(s)
+    -> ontology definitions and data bindings
+    -> authorized consumer through the utility-scoped API
+```
+
+Start with one site's HMI/PLC/pump/process relationship and a small evidence
+window, not a duplicate of every raw log. Preserve canonical IDs, source evidence
+references, event times, validity, quality and schema versions. Declare the
+authoritative source for each field; document replication lag, retention,
+corrections and deletion behavior. Keep raw security/process evidence in its
+designated source and fetch it through authorized evidence tools as needed.
+Verify refresh behavior for the selected binding/consumer: the binding guide
+currently notes a manual refresh requirement for upstream updates, so
+continuous live visibility must not be assumed.
+
+Fabric becomes more compelling when the utility already operates Fabric, or
+multiple operations/analytics teams need the same governed business model across
+maintenance, assets and process history. Before adoption, demonstrate useful
+queries with measured cost/freshness, verify our API's supported programmatic
+access, private connectivity and data residency, and prove cross-utility access
+denials through the actual consumer identity and bound sources. Namespaces are
+not tenant isolation. Avoid separately maintained, conflicting ontologies:
+designate one reviewed model and versioned mappings for any exported projection.
+
+Neither Fabric nor an ontology rule replaces deterministic safety alerts, the
+dispatcher or access enforcement. Fabric failure must not stop local control or
+critical notifications, and adopting it grants no cloud equipment-command path.
+No Fabric capacity, data pipeline or Perception integration is provisioned by
+this document.
+
 ## 9. Agent responsibilities, permissions and durable handoffs
 
 | Agent | Evidence and output | Explicit exclusion |
 |---|---|---|
-| Exposure Assessor | Approved asset inventory, Azure exposure configuration, authorized external observations; prioritized findings | No unapproved Internet/OT scanning and no deliberate public PLC exposure |
+| Exposure Assessor | Read-only utility inventory/configuration, expected access paths, telemetry coverage and approved external findings; configuration/coverage gaps | No duplicate generic cyber investigation, active scans, exploit validation, green remediation or deliberate public PLC exposure |
 | Operator Coach | Utility-approved runbooks and case evidence; cited, step-by-step guidance with verification points | No generic unsafe operating instruction or automatic computer/PLC action |
-| Monitoring Agent | Bounded security/process queries; evidence-backed hypotheses, confidence and missing-data warnings | No assertion that a process anomaly alone proves cyberattack |
+| Monitoring Agent (process and operational impact) | Bounded process/HMI evidence, sensor/feed quality, maintenance and reviewed cyber findings; potential operational impact with uncertainties | No duplicate Perception cyber investigator, unrestricted security queries or assertion that a process anomaly alone proves cyberattack |
 | Response Coordinator | Case timeline, ownership, follow-up, draft situation reports and authorized escalation | No assumed authority to contact government agencies or contain equipment |
+| Perception blue (separately managed) | Selected supported security alerts/evidence; cyber triage/investigation findings reviewed under section 5.1 | No assumed custom PLC/Cosmos access; no plant commands, administration, isolation or red/green handoffs |
 
 Deterministic rules detect critical conditions and feed-health failures even if
 models are unavailable. Agents investigate relevant alerts/findings and operator
 questions; raw samples are not individually sent to a model.
+The first four rows are our custom agent workers; Perception does not add a fifth
+custom agent. It owns supported cyber investigations when enabled, while our
+Monitoring Agent owns process/evidence-quality investigation and impact analysis.
 
 An authenticated API admits each task with a server-issued utility scope,
 authorized user/service, task ID, allowed tools and expiry. Queue payloads and
@@ -804,6 +1027,7 @@ human authorized and what actually happened.
 | Agent calls a tool | Tool/version, redacted bounded arguments or query/window reference, caller and utility, authorization result, start/end time, returned evidence IDs, success/failure/denial and error details |
 | Agent recommends an action | Proposed guidance, supporting evidence/runbook versions, assumptions and missing data; recommendation status, not executed remediation |
 | Case is opened or updated | Incident ID, actor, previous/new state, owner, reason, timestamp and concurrency/version information |
+| Perception finding is reviewed/imported/updated | Authorized reviewer or adapter identity, source tenant/incident/session/finding IDs, version/time, permitted evidence references, utility mapping, verdict/uncertainty, deduplication outcome and linked case; no hidden model reasoning |
 | Human approves or rejects sharing | Named approver, decision/time, exact content or immutable content reference/hash, evidence snapshot, verified recipients, authorized channel and expiry |
 | Report is submitted or sharing is attempted | Human submission record or approved integration attempt, linked approval, recipients/channel, attempt/deduplication ID and actual sent/failed/unknown result with receipt where available |
 | Worker retries, restarts or exhausts work | Task/attempt IDs, retry reason/count, recovery outcome or poison-queue reference; uncertain delivery is held for review rather than blindly resent |
@@ -818,6 +1042,212 @@ unnecessary personal data; do not log hidden model reasoning. An approval is not
 a delivery receipt, and an API success is not proof of physical equipment action.
 Initial external reports remain human-reviewed/submitted packages as specified
 in section 10; this table does not add an automatic reporting integration.
+
+### 9.2 Agentic flow: triggers, dispatch and reaction
+
+**Proposed, not implemented.** Agents do not automatically subscribe to every
+Log Analytics row. Log Analytics stores queryable observations; a configured
+detection identifies a relevant condition, and an authenticated dispatcher admits
+work. Utility IQ supplies meaning and evidence context, not the wake-up signal.
+The model does not choose its own monitoring schedule or permissions.
+
+#### Utility IQ provides meaning, not the wake-up signal
+
+These are separate responsibilities, not four names for the same AI function:
+
+| Component | Question it answers | Example |
+|---|---|---|
+| Detection rule | Has a configured condition occurred? | A dose-setpoint change event matches the utility's reviewed detection criteria |
+| Dispatcher and task API | Who should investigate, and under which authority? | Admit one utility-scoped Monitoring Agent task with an asset, evidence window, expiry and permitted tools |
+| Utility IQ | What does this evidence refer to, and what context can be verified? | Resolve the tag to the dosing PLC, affected process, units, reviewed relationships, applicable limits and approved procedure |
+| Agent | What can we conclude or recommend from the available evidence? | Investigate whether the change aligns with authorized activity; explain supporting facts, missing evidence and approved verification steps |
+
+For example, the raw evidence might say `Asset=PLC-01`,
+`Tag=ClDoseSetpoint`, `OldValue=1.2`, `NewValue=4.0`. A detection rule selects
+that event; the dispatcher does not need an LLM to enqueue the authorized task.
+The running agent then uses IQ tools to establish which utility/site owns
+`PLC-01`, what the tag's units and scaling are, which dosing equipment it
+controls, and which version of the utility's procedure applies. It retrieves
+available HMI/session records, process trends and maintenance context through
+the scoped API rather than assuming those facts from the tag name.
+
+The resulting assessment could be "consistent with a recorded maintenance
+change," "unexpected change requiring operator verification," or "insufficient
+evidence." IQ does not make an unknown relationship true, manufacture a missing
+audit record or establish malicious intent. Every returned relationship or
+document needs provenance/version information, and observations need timestamps
+and quality/freshness indicators.
+
+Thus, **the trigger decides when work is needed; IQ helps the agent understand
+the work once admitted**. IQ can also supply reviewed asset mappings and limits
+to deterministic detection configuration; this does not make IQ itself an
+autonomous scheduler. A context/configuration change starts reassessment only
+if an explicit authorized trigger is configured for it.
+
+Keep the two failure paths distinct. If dispatch fails, having an IQ layer does
+not start an investigation: backlog/checkpoint monitoring must expose the
+failure. If IQ enrichment fails, the alert still exists and deterministic
+notification continues; the agent reports unavailable context or leaves a
+visible failed/pending task instead of inventing an explanation. Neither
+failure transfers equipment control to an agent.
+
+#### When agents react
+
+| Trigger | Detection or initiation | Initial agent/task |
+|---|---|---|
+| Relevant process condition | Scheduled KQL rule finds a reviewed threshold, setpoint-change event or process sequence | Monitoring Agent investigates process, quality and potential operational impact |
+| Supported cyber alert | Defender/Sentinel detection and supported Perception playbook trigger, configured and tested in the security service | Perception blue triage/investigation if adopted; otherwise authorized analyst, not automatic duplicate custom-agent investigation |
+| Reviewed cyber finding | Authorized analyst case submission; validated adapter update only after section 5.1 acceptance | Response Coordinator links the finding; Monitoring Agent receives a separate bounded impact task when utility relevance is established |
+| Missing or stale evidence | Deterministic feed-health rule compares expected heartbeats/observations with actual receipt and quality | Monitoring Agent reports lost visibility; silence is not evidence that the plant is healthy |
+| Approved periodic review | Container Apps scheduled job admits bounded work on a utility-approved schedule | Exposure Assessor reviews authorized inventory/exposure evidence; Monitoring Agent can perform scheduled evidence reviews |
+| Operator question | Authorized portal request through the utility API | Monitoring Agent investigates or Operator Coach retrieves cited guidance |
+| Case transition or follow-up deadline | Authorized case API transition or scheduled check of durable case state | Response Coordinator manages ownership/follow-up; Coach receives a separate guidance task when needed |
+
+Rules, expected feed intervals, persistence windows, priorities, maintenance
+handling and escalation deadlines are versioned utility configuration. Not every
+change is abnormal, and not every alert invokes all four agents.
+
+#### Detection-to-agent dispatch
+
+One concrete detection path is a scheduled Azure Monitor log-search alert over
+the utility workspace. Its KQL finds explicit change events or compares ordered
+observations for the same asset/tag; a newly ingested row alone is not proof of
+a value change. Rule configuration defines the lookback window, evaluation
+frequency and firing/resolution behavior. These process rules do not send every
+security alert to our Monitoring Agent. The separate cyber lane in section 9.3
+uses supported security triggers; any Sentinel-to-Target task dispatch requires
+its own implemented connector/authorization contract.
+
+**Private ingress remains unchanged.** An Action Group webhook cannot be assumed
+to reach the private utility API. The initial proposed dispatcher runs as a
+bounded Container Apps scheduled job in the platform network, reads alert
+instances through an authorized Azure API, and calls the internal task API.
+Give it only the required utility-scoped alert-read and task-submit permissions;
+validate the selected alert API, outbound access and durable polling checkpoint.
+An Action Group push integration is an alternative only after its authentication,
+delivery and private-connectivity path are explicitly designed and verified.
+Neither option adds public portal/API ingress or an agent-to-PLC connection.
+
+```mermaid
+flowchart TB
+  Evidence["Selected process / HMI evidence arrives<br/>Log Analytics"]
+  Rules["Deterministic process detection<br/>Scheduled KQL / feed-health rules"]
+  Alerts["Alert instances<br/>Source IDs / condition / affected assets"]
+  Dispatch["Scheduled private dispatcher<br/>Authorized alert reads / durable checkpoint"]
+  Other["Approved schedule / operator question<br/>Case transition / follow-up deadline"]
+  API["Internal task API<br/>Authenticate / bind utility / validate / deduplicate"]
+  Queue["Relevant agent work queue<br/>Task ID / expiry / permitted tools"]
+  Agent["Utility agent investigates<br/>Process / impact or assigned utility role"]
+  Cyber["Supported security detections<br/>Defender / Sentinel"]
+  Blue["Perception blue or authorized analyst<br/>Separate cyber investigation"]
+  Reviewed["Human-reviewed cyber finding<br/>Automated adapter only after preview acceptance"]
+  IQ["Utility IQ via scoped API<br/>Mappings / relationships / evidence / runbooks"]
+  Case["Durable finding / case update<br/>Facts / hypotheses / unknowns"]
+  Human["Operator guidance / human review<br/>Approved follow-up and verified outcomes"]
+  Evidence --> Rules --> Alerts --> Dispatch --> API
+  Cyber --> Blue --> Reviewed --> API
+  Other --> API
+  API --> Queue --> Agent
+  Agent <--> IQ
+  Agent --> Case --> Human
+```
+
+The API derives utility scope from the authenticated caller and reviewed source
+mapping, not an arbitrary utility ID in an alert or prompt. A task records the
+trigger/source ID, rule version where available, affected assets, evidence time
+window, priority, correlation/case ID, allowed tools and expiry. The dispatcher
+checkpoints only after durable admission; repeated delivery uses a stable
+source-event/task deduplication key. Define whether a later update reopens,
+extends or resolves existing work rather than creating duplicate investigations.
+
+The assigned agent retrieves current evidence and Utility IQ context through
+bounded tools, distinguishes facts from hypotheses, and persists its result.
+Additional agent handoffs are explicit authorized tasks, not unrestricted
+agent-to-agent instructions. Recommendations, human approvals and actual
+outcomes remain separate records under sections 9.1 and 10.
+
+#### Example and timing
+
+For a dose-setpoint change from 1.2 to 4.0, a collector/HMI audit may record the
+old/new values, asset, time and available actor/session evidence. A configured
+rule selects the event; dispatch creates a Monitoring Agent task. IQ maps the
+tag to the correct dosing equipment, units, reviewed limits and runbook. The
+agent queries the process trend, HMI audit and available identity/endpoint
+evidence, checking maintenance context and reporting missing attribution.
+The Coach can retrieve approved verification steps; the Coordinator can organize
+the case and owner. This sequence alone does not establish a cyberattack, and
+no task writes a PLC setpoint or operates a pump.
+
+Reaction time includes collection, batching, ingestion, rule evaluation,
+dispatcher polling, queue delay, evidence retrieval and model execution.
+A one-minute rule evaluation is not a one-minute end-to-end guarantee.
+Agree and measure detection-to-admission and admission-to-result targets per
+severity; use overlapping query windows and deduplication for late arrivals,
+and report observation time separately from ingestion and processing times.
+
+Deterministic notifications and local critical alarms must not depend on AI
+completion. Monitor dispatcher checkpoints, queue age, failed/expired tasks,
+model/tool availability and poison queues; bounded retries must not hide lost
+work. Model unavailability leaves a visible pending/failed investigation, not
+a healthy-state assertion. Local PLC control and protection continue
+independently of cloud ingestion, IQ and all four agents.
+
+### 9.3 Process and cyber investigation lanes
+
+**Two investigation lanes, linked evidence and one accountable utility case
+owner where related.** Perception analyzes supported cyber evidence; Monitoring
+analyzes process anomalies, feed/sensor quality and potential operational impact.
+Neither replaces deterministic detection, critical operator notifications or
+local protection. Perception coverage does not automatically include custom PLC
+tables, and Utility IQ does not expose Cosmos relationships to Perception.
+
+For example, a process rule may flag sustained abnormal chlorine while an
+independent security detection flags suspicious HMI activity. Each can start
+without the other. The scoped API resolves verified asset/account mappings and
+authorized evidence windows to propose or establish a case link. The Coordinator
+maintains the utility case and owner; the security service retains its own source
+incident. Preserve both identifiers and do not claim atomic cross-system status
+synchronization or close one merely because the other closes.
+
+| Correlation basis | Implementation and limit |
+|---|---|
+| Explicit activity link | Source/application-instance-scoped session and action IDs connect HMI login, request, command audit and readback where actually emitted; Windows/Entra/HMI sessions are not assumed identical |
+| Semantic relationship | Utility-scoped canonical IDs, reviewed HMI-to-PLC and PLC-to-equipment mappings, source provenance and effective dates identify potential relevance, not proof of executed actions |
+| Temporal association | Bounded event-time windows for the same related assets/tags, with clock uncertainty and maintenance/process context; nearest timestamp or temporal proximity does not establish actor or causation |
+
+KQL does not automatically join Cosmos records. The API assembles context from
+bounded queries; any small mapping/threshold projection used by scheduled KQL
+must be deliberately published, versioned and monitored for staleness. Keep
+telemetry in Log Analytics, context/relationships in Cosmos, latest observed
+snapshots in state storage and approved procedures behind authorized retrieval.
+Preserve native IDs and mapping versions so corrections can be re-evaluated.
+
+Concurrent requests remain separate actions even when timestamps match. Distinct
+HMI session/action IDs and target asset/tag IDs prevent combining two operators'
+requests. Record local execution ordering where available, accepted/rejected
+outcomes and individual readbacks. A readback tagged with action A may already
+observe action B's value; it is not causal proof. Missing logout or a nearby
+Windows sign-in does not identify a command's actor. Modbus carries no
+authenticated human identity, and its transaction ID is not a global action ID.
+If execution/attribution cannot be established, retain both candidates and the
+explicit uncertainty. Local control ownership/concurrency policies, covering
+every permitted write path, belong in HMI/control design, not cloud agents.
+
+Use stable source tenant/incident/finding IDs and update versions for cyber
+handoff deduplication; case IDs group work but do not prove causation. Process
+tasks retain alert/rule/asset/window references and separate task keys. Repeated
+imports must not open competing cases, invoke every worker or create a recursive
+Perception-to-agent-to-Perception loop. Later evidence can revise findings under
+an audited case update and invalidate stale approvals. Conflicting findings stay
+visible for review rather than silently selecting the more confident model.
+Late events require overlapping windows, deduplication and bounded reassessment,
+not ordering by ingestion time.
+
+Without a validated automatic adapter, the portal must show a human-submitted
+cyber assessment and its review time, not imply live Perception synchronization.
+With an adapter, also expose last successful sync, pending/failed updates and
+missing/stale evidence. Neither mode labels a process anomaly an attack merely
+because a related HMI had an alert.
 
 ## 10. Incident coordination and human approvals
 
@@ -871,7 +1301,7 @@ It is not a high-availability production deployment.
 
 Budget before deployment for Windows licensing/endpoint protection, VM disks,
 VPN gateways, private DNS resolver, Azure Firewall, private-link-capable
-registry/search tiers, model tokens and
+registry/search tiers, model tokens, separately metered Perception usage and
 telemetry retention. Scale idle agent workers to zero where trigger support
 permits; cap replicas, execution time, tool calls and token budgets.
 
@@ -886,6 +1316,8 @@ Before provisioning, verify subscription/tenant, budget, regional SKU/model
 capacity, address overlap including VPN client networks, policy, VPN/BGP/client
 routes, private DNS/endpoint routing, MFA licensing, supported VPN clients and
 server endpoint entitlements.
+Perception adoption additionally requires the tenant, coverage, analysis-only
+policy and budget gates in section 5.1; product GA is not proof of integration GA.
 Existing policies, accounts and comparison-lab resources must not be changed as a
 fallback. No live utility, malware or public OT exposure is required for testing.
 
@@ -899,6 +1331,8 @@ fallback. No live utility, malware or public OT exposure is required for testing
 | Combined gateway reliability | Collector/relay service restarts and full gateway outage; durable pending records, bounded retries and deduplication after recovery; stale-feed alerts and uninterrupted local control |
 | Process interpretation | Known units/scaling, high/low/rate/stale/quality cases and no invented human attribution |
 | Agent safety | Negative permission tests, bounded tools, grounded guidance, injection-resistant authorization and no PLC/admin/containment tool |
+| Perception boundary and availability | Actual tenant entitlement/coverage, selected blue playbooks, denied plant actions/red/green handoffs and reviewed existing Defender response policies; no credentials or routes to plant control; analyst fallback if restrictions cannot be enforced |
+| Cyber handoff and operational correlation | Human submission provenance first; adapter mode only after documented contract/network acceptance; duplicate/update/stale/outage handling, cross-utility rejection, concurrent-action ambiguity, no feedback loops and no inferred attack from timing alone |
 | Utility isolation | Utility 002 cannot query utility 001's logs, cases, documents or evidence; approved aggregation is separate |
 | Durable coordination | Restart, duplicate task, expired/rejected approval, poison work and uncertain-notification receipt tests |
 | Operational cost | Measured ingestion/token/storage use and explicit remaining-cost report after shutdown |
@@ -906,7 +1340,9 @@ fallback. No live utility, malware or public OT exposure is required for testing
 Implementation sequencing: site isolation and local process first; genuine
 telemetry and MFA second; deterministic detections and operator views third;
 bounded agents and approved case workflows fourth; second-utility onboarding
-and isolation proof last. No infrastructure is provisioned by this document.
+and isolation proof last. Validate Perception's tenant/policy gate before cyber
+adoption; automated preview integration is a separate later acceptance gate.
+No infrastructure is provisioned by this document.
 
 ## References
 
@@ -919,8 +1355,13 @@ and isolation proof last. No infrastructure is provisioned by this document.
 - [Microsoft Entra sign-in for Windows VMs in Azure: requirements and limitations](https://learn.microsoft.com/en-us/entra/identity/devices/howto-vm-sign-in-azure-ad-windows)
 - [Azure Monitor Logs Ingestion API](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/logs-ingestion-api-overview)
 - [Microsoft Sentinel ASIM](https://learn.microsoft.com/en-us/azure/sentinel/normalization)
+- [Microsoft Perception GA and feature status, November 17, 2026](https://www.microsoft.com/en-us/security/blog/2026/11/17/security-for-the-agentic-era-powered-by-microsoft-perception/)
+- [Perception playbooks and investigation capabilities](https://techcommunity.microsoft.com/blog/perception-blog/whats-new-with-microsoft-perception-at-ignite-2026/4571834)
+- [Microsoft Perception overview and pricing approach](https://www.microsoft.com/en-us/security/business/microsoft-perception-agentic-system)
 - [Microsoft IQ capabilities](https://learn.microsoft.com/en-us/microsoft-iq/)
 - [Fabric IQ and ontology](https://learn.microsoft.com/en-us/fabric/iq/overview)
+- [Fabric ontology overview (preview)](https://learn.microsoft.com/en-us/fabric/iq/ontology/overview)
+- [Fabric ontology data binding, prerequisites and supported sources (preview)](https://learn.microsoft.com/en-us/fabric/iq/ontology/how-to-bind-data)
 - [Foundry IQ knowledge bases and availability](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/what-is-foundry-iq)
 - [OGC SensorThings API](https://www.ogc.org/standards/sensorthings/)
 - [Eclipse Sparkplug specification](https://sparkplug.eclipse.org/specification/)
