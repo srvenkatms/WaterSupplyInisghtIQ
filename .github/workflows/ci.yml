@@ -38,7 +38,7 @@ jobs:
           PYTHONPATH=generator python -m swugen.configuration --check
           python -m pytest -q generator/tests apps/tests harness/tests
       - name: Actual OpenPLC runtime integration
-        run: python -m pytest -q -m openplc apps/tests/test_openplc_runtime.py --junitxml=test-results/openplc-ci.xml
+        run: python -m pytest -q -m openplc apps/tests/test_openplc_runtime.py --log-level=DEBUG --junitxml=test-results/openplc-ci.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
