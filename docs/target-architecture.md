@@ -198,6 +198,16 @@ The API and IQ boxes describe logical responsibilities, not two mandatory networ
 hops. Case writes and other tools keep their own role/purpose checks; not every
 API call needs a Log Analytics query.
 
+The explicit **IQ DB (Azure Cosmos DB)** box is the semantic-context portion of
+the planned Cosmos deployment, not a new database product or extra platform.
+Its write path is reviewed onboarding/configuration -> scoped context-write
+operation in the existing utility API -> validated, approved, versioned records.
+Its read path is custom agent -> scoped API/IQ resolution -> IQ DB lookup ->
+bounded context result through the same API. The drawn context-write API is a
+separately authorized operation, not a second API deployment or agent-write
+permission. Log Analytics evidence is queried separately and combined with this
+context; no bulk Log Analytics-to-IQ DB ingestion is implied.
+
 Perception belongs in the **same logical Utility Advisory Platform layer** as
 the four custom agents. Purple distinguishes the Microsoft-managed cyber
 capability from our container-hosted workers; the grouping does not place
@@ -831,6 +841,28 @@ Retain superseded versions for historical investigation. Observations retain
 source IDs, event/ingestion times, units/scaling and quality as in section 8.2.
 Utility IDs and namespaces label scope; server-side authorization enforces it.
 
+**IQ DB write/read contract:** keep reviewed entity instances, source mappings,
+relationships and publication/version metadata in utility-scoped Cosmos records.
+Define schema/type rules in version-controlled code; record the applicable
+definition version with each published model. An authorized onboarding/change
+workflow submits inventory and tag/configuration mappings to the existing API.
+The context-write operation checks caller role, utility, schema, referenced
+entities, relationship types, validity periods and conflicting mappings, then
+requires the recorded approval before publishing a consistent model version.
+Invalid/ambiguous changes remain rejected or visibly pending; they must not
+silently replace approved context. Preserve approval and change-audit references
+and superseded versions. Agent evidence tools do not gain this publication role.
+
+For reads, the API derives utility scope from authentication and resolves the
+requested model/event time against approved versions. It returns authorized
+entities/relationships with version, provenance and validity, or explicit
+missing/stale/ambiguous-context status. Combine those results with bounded
+Log Analytics observations and approved document retrieval, not by copying all
+process samples or unreviewed agent conclusions into IQ DB. Cases/approvals for
+incident workflow use their separate logical case containers; latest observed
+snapshots remain in state storage. "IQ DB" names this semantic-context store,
+not every record in the Cosmos account and not an autonomous reasoning engine.
+
 For example, the following reviewed relationships support an impact query:
 
 ```text
@@ -898,7 +930,9 @@ detection continues independently when the model or IQ enrichment is unavailable
 ```mermaid
 flowchart TB
   Logs["Log Analytics / Sentinel<br/>Selected process, HMI, host, identity and network evidence"]
-  Context["Reviewed utility configuration<br/>Assets / relationships / thresholds / valid-time mappings"]
+  Onboarding["Reviewed utility onboarding / changes<br/>Inventory / tag maps / source identifiers"]
+  ContextWrite["Existing API: context-write operation<br/>Authorize / validate / approval / versioned publication"]
+  Context["IQ DB - Azure Cosmos DB<br/>Canonical entities / mappings / typed relationships / versions"]
   Knowledge["Approved documents / AI Search<br/>Runbooks / procedures / source versions"]
   Cases["Cosmos DB / Blob<br/>Cases / approvals / referenced evidence"]
   subgraph IQ["UTILITY IQ - logical capability in the existing API and stores"]
@@ -909,7 +943,9 @@ flowchart TB
     Meaning --> Bundle
   end
   Logs --> Gate
-  Context --> Gate
+  Onboarding --> ContextWrite --> Context
+  Gate -->|"Scoped reads"| Context
+  Context -->|"Approved context / provenance / validity"| Gate
   Knowledge --> Gate
   Cases --> Gate
   Bundle --> Agents["Four advisory agents<br/>Assess / coach / investigate / coordinate"]
