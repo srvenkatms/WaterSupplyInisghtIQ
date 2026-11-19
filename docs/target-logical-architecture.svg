@@ -172,18 +172,18 @@
   <text x="1435" y="1182" class="subheading">Response Coordinator</text>
   <text x="1435" y="1211" class="small">Cases / timeline</text>
   <text x="1435" y="1236" class="small">Escalation drafts</text>
-  <rect x="55" y="1305" width="530" height="70" rx="10" class="box"/>
-  <text x="75" y="1334" class="subheading">Utility-scoped query / case API</text>
-  <text x="75" y="1360" class="small">Server-enforced role, utility and bounded tool permissions</text>
-  <rect x="665" y="1305" width="1080" height="70" rx="10" class="box"/>
-  <text x="685" y="1334" class="subheading">Shared services with explicit authorization</text>
-  <text x="685" y="1360" class="small">Custom agents call Foundry; API mediates Search / Cosmos DB / Blob evidence / work queues</text>
-  <path d="M205 1260V1305" class="line"/>
-  <path d="M545 1260V1270H290V1305" class="line"/>
-  <path d="M885 1260V1278H360V1305" class="line"/>
-  <path d="M1580 1260V1285H550V1305" class="line"/>
-  <path d="M585 1340H665" class="line"/>
-  <path d="M55 1340H20V1075H915V1060" class="line"/>
+  <rect x="55" y="1395" width="530" height="70" rx="10" class="box"/>
+  <text x="75" y="1424" class="subheading">Utility-scoped query / case API</text>
+  <text x="75" y="1450" class="small">Server-enforced role, utility and bounded tool permissions</text>
+  <rect x="665" y="1395" width="1080" height="70" rx="10" class="box"/>
+  <text x="685" y="1424" class="subheading">Shared services with explicit authorization</text>
+  <text x="685" y="1450" class="small">Custom agents call Foundry; API mediates Search / Cosmos DB / Blob evidence / work queues</text>
+  <path d="M205 1260V1395" class="line"/>
+  <path d="M545 1260V1300H290V1395" class="line"/>
+  <path d="M885 1260V1325H360V1395" class="line"/>
+  <path d="M1580 1260V1350H550V1395" class="line"/>
+  <path d="M585 1430H665" class="line"/>
+  <path d="M55 1430H20V1075H915V1060" class="line"/>
   <text x="950" y="1080" class="small">API queries IQ context; no direct PLC or broad data credentials</text>
   <g id="perception-lane">
     <title>Microsoft-managed cyber capability within the logical utility advisory platform: proposed, not enabled</title>
@@ -225,8 +225,8 @@
       <tspan x="1800" dy="25">Sentinel / Defender</tspan>
       <tspan x="1800" dy="25">Not all workspace data</tspan>
     </text>
-    <path id="cyber-output" d="M1225 1700V1735H450V1745" class="security-line" stroke-dasharray="7 5"/>
-    <path id="case-to-portal" d="M320 1815V1830H-10V2008H915V2020" class="line"/>
+    <path id="cyber-output" d="M1225 1700V1815H450V1835" class="security-line" stroke-dasharray="7 5"/>
+    <path id="case-to-portal" d="M320 1905V1920H-10V2008H915V2020" class="line"/>
   </g>
   <path d="M-190 100H-135" class="access-line"/>
   <text x="-200" y="133" class="small">Human access</text>
