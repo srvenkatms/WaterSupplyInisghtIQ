@@ -105,13 +105,25 @@ flowchart TB
   RemoteHuman --> HumanConnection
 
   subgraph CloudConcept["AZURE CLOUD SERVICE - insights, not process control"]
+    subgraph SourcesConcept["1. EVIDENCE / CONTEXT SOURCES"]
     WaterReceiver["Azure Monitor ingestion<br/>Process / HMI audit / AMA"]
-    SecurityReceiver["Security evidence<br/>Sentinel / Defender integrations"]
+    SecurityReceiver["Security findings / supported integrations<br/>Sentinel detection and incidents"]
     CloudSecurity["Microsoft Entra / Defender services<br/>Cloud sign-in and endpoint evidence"]
     ResourceDiagnostics["Azure-managed firewall / VPN resources<br/>Own logs via diagnostic settings"]
-    EvidenceContext["Utility-scoped evidence and cases<br/>Separate schemas + asset context + approved runbooks"]
+    ReviewedContext["Reviewed inventory / tag maps / relationships<br/>Authorized context-write API: validate / approve / version"]
+    ApprovedDocuments["Approved procedures / source documents"]
+    end
+    subgraph StoresConcept["2. DATA STORES / INDEXES"]
+    EvidenceContext["Log Analytics STORE<br/>Selected process / HMI / host / cloud history"]
+    DefenderStore["Defender native evidence STORE<br/>Not all records exported to Log Analytics"]
+    ContextDB["IQ DB / Cosmos DB STORE<br/>Reviewed semantic records and versions"]
+    CaseStore["Case STORE / separate Cosmos containers<br/>Tasks / approvals / timeline"]
+    KnowledgeStore["Blob STORE / AI Search INDEX<br/>Files / state / cited knowledge"]
+    end
+    subgraph IQConcept["3. UTILITY IQ"]
     UtilityIQ["Utility IQ layer<br/>Shared meaning, relationships and grounded context via scoped API"]
-    subgraph AgentConcept["UTILITY ADVISORY PLATFORM - logical capabilities, not one hosting boundary"]
+    end
+    subgraph AgentConcept["4. ADVISORY AGENTS - logical capabilities, not one hosting boundary"]
       Exposure["Exposure Assessor<br/>Read-only utility configuration review"]
       Coach["Operator Coach<br/>Explain approved next steps"]
       Monitor["Monitoring Agent<br/>Process anomalies / quality / operational impact"]
@@ -122,16 +134,23 @@ flowchart TB
     style Perception fill:#fcf9ff,stroke:#9775b3,stroke-width:2px
     CyberHandoff["Reviewed cyber finding via case API<br/>Human submission initially<br/>Automated adapter gated on preview validation"]
     WaterReceiver --> EvidenceContext
-    SecurityReceiver --> EvidenceContext
-    CloudSecurity --> SecurityReceiver
+    CloudSecurity --> DefenderStore
+    CloudSecurity -->|"Selected supported exports"| EvidenceContext
+    EvidenceContext -->|"Supported detections"| SecurityReceiver
+    DefenderStore -->|"Supported security coverage"| SecurityReceiver
     SecurityReceiver -->|"Supported security coverage only"| Perception
-    Perception --> CyberHandoff --> EvidenceContext
+    Perception --> CyberHandoff --> CaseStore
     ResourceDiagnostics -->|"Own resource logs"| EvidenceContext
-    EvidenceContext --> UtilityIQ
-    UtilityIQ --> Exposure
-    UtilityIQ --> Coach
-    UtilityIQ --> Monitor
-    UtilityIQ --> Coordinator
+    ReviewedContext --> ContextDB
+    ApprovedDocuments --> KnowledgeStore
+    EvidenceContext <-->|"Scoped query / bounded evidence"| UtilityIQ
+    ContextDB <-->|"Approved context lookup"| UtilityIQ
+    CaseStore <-->|"Authorized case tools"| UtilityIQ
+    KnowledgeStore <-->|"Scoped retrieval / citations"| UtilityIQ
+    UtilityIQ <-->|"Scoped API"| Exposure
+    UtilityIQ <-->|"Scoped API"| Coach
+    UtilityIQ <-->|"Scoped API"| Monitor
+    UtilityIQ <-->|"Scoped API"| Coordinator
     Exposure --> PrivatePortal
     Coach --> PrivatePortal
     Monitor --> PrivatePortal
@@ -170,8 +189,8 @@ subject to verified recipients and case-specific authorization.
 ### Logical architecture companion
 
 [Open the Target logical architecture SVG](target-logical-architecture.svg).
-This grouped-box view shows local control, collection/transport, evidence,
-four utility agents, the separately managed Perception blue lane and private
+This grouped-box view shows local control, collection/transport, four logical
+information/advisory layers, the separately managed Perception blue lane and private
 operator access. It describes the proposed Target,
 not the deployed Route A/B labs. Native endpoint/identity integrations retain
 their supported paths; not every log traverses the edge collection application.
@@ -187,6 +206,44 @@ not another provisioned lab VM.
 The Utility IQ layer adds shared meaning and evidence relationships through the
 existing scoped API and stores; it is not another agent, VM or ingestion gateway.
 See section 8.3 for its purpose, implementation approach and dedicated diagram.
+
+#### Four logical information and advisory layers
+
+| Layer | Components | Responsibility |
+|---|---|---|
+| **1. Evidence / context sources** | PLC/sensors, HMI audit, host/network and identity events, resource diagnostics, security findings, reviewed inventory and procedures | Produce observations, derived findings and approved context; ingestion services transport records but are not the original event producers. |
+| **2. Data stores / indexes** | Log Analytics, Defender-native evidence stores, IQ DB/Cosmos DB, separate case containers, Blob Storage and AI Search indexes | Retain designated records and indexes with source-specific retention, scope and permissions; no universal copy of all evidence is required. |
+| **3. Utility IQ** | Semantic definitions, canonical identity resolution, typed relationships, provenance, event-time correlation and scoped context assembly | Interpret and relate selected evidence using reviewed semantic records and cited knowledge through the existing scoped API. |
+| **4. Advisory agents** | Assessor, Coach, Monitoring and Coordinator; distinctly colored Microsoft-managed Perception cyber capability | Investigate, explain, recommend and coordinate within approved permissions; never control equipment. |
+
+These are **logical responsibilities, not a mandatory sequential processing
+pipeline or a shared hosting boundary**. IQ DB belongs in the store layer;
+Utility IQ interprets and assembles its reviewed records. Agent requests and
+bounded results travel in both directions through the scoped API. Approved case
+writes and semantic publication have separate authorization checks; agent read
+access does not grant model publication rights.
+
+| Component | Store or source? | Information supplied |
+|---|---|---|
+| Log Analytics | **Store** | Selected historical process/HMI, host, network, identity and resource records, according to configured collection. |
+| Sentinel | **Source: detection/incident service** | Alerts, incidents and evidence references over supported connected evidence; not a second universal log database. |
+| Defender | **Source with native evidence stores** | Supported endpoint/security alerts and evidence; not every record is exported to Log Analytics. |
+| Perception | **Source: investigation service** | Reviewed cyber findings and permitted evidence references; not a replacement telemetry store. |
+| IQ DB / Cosmos DB | **Store** | Reviewed entities, mappings, typed relationships, validity, provenance and model versions. |
+| Case containers / Cosmos DB | **Store** | Cases, tasks, assignments, approvals and workflow history, separate from semantic records. |
+| Blob Storage | **Store** | Authorized evidence files, source documents and designated state snapshots. |
+| AI Search | **Store: retrieval index** | Permission-scoped indexed knowledge with source/version citations; original documents remain in their designated store. |
+
+Here, "source" means an information provider to the advisory platform; the
+original event producers remain the PLCs, HMIs, operating systems, network
+devices and identity services. Deterministic detection continues independently
+of AI. Sentinel evaluates its supported evidence without first traversing IQ.
+Perception retains its supported Microsoft security-service connections and
+initially returns findings through authorized human-reviewed case submission.
+Neither arrow placement nor layer membership implies a deployed Defender
+adapter, arbitrary Perception access to custom tables/IQ DB, or an approved
+automated external integration. Source-specific tools require validated support
+and authorization; unavailable, stale or inaccessible evidence must be explicit.
 
 The SVG's double-headed API/IQ and IQ/evidence links distinguish requests from
 results: our custom agents call the scoped API, which implements IQ context

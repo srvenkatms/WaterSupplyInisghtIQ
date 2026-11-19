@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="2240" height="2660" viewBox="-220 0 2240 2660" style="max-width:100%;height:auto" role="img" aria-labelledby="title description">
   <title id="title">Water Utility InsightIQ: Target logical architecture</title>
-  <desc id="description">Proposed design, not deployed. Local tank sensors feed a PLC, which commands a motor starter or drive and pump. A dedicated plant PC accesses a separate HMI; the business PC has no plant-control access. One edge gateway contains collector and relay services. Native AMA and Defender agents collect host evidence separately. Both collection paths cross the utility firewall. Private process and Windows ingestion uses the site-to-Azure VPN; Defender and identity services use approved service egress. Entra sign-ins and Azure firewall and VPN diagnostics originate in cloud services. Process and security evidence converge in utility-scoped Log Analytics and Sentinel. Four separate container-hosted agents use a utility-scoped API for evidence, cases and approved runbooks, and call Foundry models for inference. Private portal access requires human VPN, Entra ID and MFA. External incident sharing requires human approval. There is no cloud-to-PLC command path. Four utility VMs are proposed; the business PC is real-site context, not a fifth initial VM.</desc>
+  <desc id="description">Proposed design, not deployed. Four logical layers separate evidence and context sources, designated stores and indexes, Utility IQ interpretation, and advisory agents. Local PLC control stays local. Site evidence uses private Monitor ingestion; Defender and identity clients use approved service egress. Log Analytics stores selected history, Defender retains native security evidence, IQ DB stores reviewed semantic records, and case, Blob and Search stores retain their designated records and indexes. Sentinel is a detection and incident service, not another universal database. Custom agents request bounded evidence and context through the scoped API and IQ tools. Perception retains separate supported security-service access and initially returns findings through human-reviewed case submission. No automatic Defender adapter or external Perception integration is implied. Private human access requires VPN, Entra ID and MFA. No cloud-to-PLC command path exists.</desc>
   <defs>
     <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#32627c"/></marker>
     <marker id="query-arrow" markerWidth="5" markerHeight="5" refX="4.5" refY="2.5" orient="auto-start-reverse"><path d="M0 0L5 2.5L0 5Z" fill="#32627c"/></marker>
@@ -124,67 +124,73 @@
   <text x="685" y="748" class="subheading">Azure-managed firewall + VPN resources</text>
   <text x="685" y="777" class="small">Own logs via diagnostic settings - not PC traffic</text>
   <rect x="35" y="820" width="1730" height="210" rx="14" fill="#eaf3fb" stroke="#7198b7" stroke-width="2"/>
-  <text x="55" y="854" class="heading">AZURE EVIDENCE / DETECTION - utility-scoped data, separate schemas</text>
+  <text x="55" y="854" class="heading">1. EVIDENCE / CONTEXT SOURCES - originating observations, findings and reviewed inputs</text>
   <rect x="55" y="880" width="470" height="120" rx="10" class="box"/>
-  <text x="75" y="910" class="subheading">Azure Monitor DCE / DCR ingestion</text>
+  <text x="75" y="910" class="subheading">Site evidence via Monitor DCE / DCR</text>
   <text x="75" y="939" class="small">Process + HMI audit + selected Windows events</text>
   <text x="75" y="968" class="small">Private endpoints / source identity / quality checks</text>
   <rect x="665" y="880" width="500" height="120" rx="10" class="box"/>
-  <text x="685" y="910" class="subheading">Log Analytics + Microsoft Sentinel</text>
-  <text x="685" y="939" class="small">Process and security evidence / asset context</text>
-  <text x="685" y="968" class="small">Deterministic alerts continue without AI</text>
-  <rect x="1305" y="880" width="440" height="120" rx="10" class="security"/>
-  <text x="1325" y="910" class="subheading">Native security integrations</text>
-  <text x="1325" y="939" class="small">Entra sign-in logs / Defender evidence</text>
-  <text x="1325" y="968" class="small">Cloud-generated records via native connectors</text>
-  <path d="M820 635V700H290V880" class="line"/>
-  <path d="M1455 635V750H1525V880" class="security-line"/>
-  <text x="1540" y="799" class="small">Cloud evidence</text>
-  <path d="M915 795V805H1220V980H1165" class="security-line"/>
-  <path d="M525 940H665" class="line"/>
-  <path d="M1305 940H1165" class="security-line"/>
+  <text x="685" y="910" class="subheading">Native security sources / services</text>
+  <text x="685" y="939" class="small">Entra events / Defender evidence / Sentinel findings</text>
+  <text x="685" y="968" class="small">Sentinel detects over supported connected evidence</text>
+  <rect id="iqdb-source" x="1305" y="880" width="440" height="120" rx="10" class="box"/>
+  <text x="1325" y="910" class="subheading">Reviewed utility context / knowledge</text>
+  <text x="1325" y="939" class="small">Inventory / tag maps / relationships / procedures</text>
+  <text x="1325" y="968" class="small">Scoped context API: validate / approve / version</text>
+  <path d="M820 635V700H290V820" class="line"/>
+  <path d="M1455 635V750H1240V810H915V820" class="security-line"/>
+  <text x="1260" y="799" class="small">Cloud security evidence</text>
+  <path d="M915 795V805H550V815H400V820" class="security-line"/>
   </g>
 
-  <g id="iqdb-storage">
-    <title>IQ DB: reviewed semantic context in the planned Cosmos DB deployment</title>
-    <desc>Reviewed inventory and configuration enter through a separately authorized context-write operation in the existing utility API. Schema and reference validation, utility scope and approval are required before versioned publication. Scoped IQ reads return approved time-valid context. Raw process history remains in Log Analytics; case records remain separate logical containers.</desc>
+  <g id="store-layer">
+    <title>Designated stores and indexes, not a single universal evidence database</title>
+    <desc>Selected site, identity and resource records enter Log Analytics. Defender retains native evidence. Sentinel uses supported connected evidence without requiring every security record in Log Analytics. Reviewed utility context is published to IQ DB through authorized validation and approval. Cases, evidence files, snapshots and knowledge indexes have separate logical stores. Read connectors require source-specific support and authorization; missing access is explicit.</desc>
     <rect x="35" y="1400" width="1730" height="160" rx="14" fill="#fff8e9" stroke="#b48b39" stroke-width="2"/>
-    <text x="55" y="1428" class="heading">IQ DB - semantic context storage and reviewed publication (proposed)</text>
-    <rect id="iqdb-source" x="55" y="1445" width="440" height="95" rx="10" class="box"/>
-    <text x="75" y="1473" class="subheading">Reviewed utility onboarding / changes</text>
-    <text x="75" y="1500" class="small">Inventory / PLC tag maps / asset relationships</text>
-    <text x="75" y="1525" class="small">Source IDs / units / validity / provenance</text>
-    <rect id="iqdb-writer" x="625" y="1445" width="450" height="95" rx="10" class="box"/>
-    <text x="645" y="1473" class="subheading">Scoped context-write API</text>
-    <text x="645" y="1500" class="small">Authorize / validate / require approval</text>
-    <text x="645" y="1525" class="small">Publish version; audit changes; reject conflicts</text>
-    <rect id="iqdb" x="1195" y="1445" width="550" height="95" rx="10" class="box"/>
-    <text x="1215" y="1473" class="subheading">IQ DB (Azure Cosmos DB)</text>
-    <text x="1215" y="1500" class="small">Canonical entities / source mappings / typed relationships</text>
-    <text x="1215" y="1525" class="small">Model versions / approvals / effective dates; not raw telemetry</text>
-    <path id="iqdb-import" d="M495 1490H625" class="line"/>
-    <text x="510" y="1478" class="small">Submit</text>
-    <path id="iqdb-publish" d="M1075 1490H1195" class="line"/>
-    <text x="1088" y="1478" class="small">Write</text>
+    <text x="55" y="1428" class="heading">2. DATA STORES / INDEXES - retained evidence, semantic context, cases and approved knowledge</text>
+    <rect id="log-store" x="55" y="1445" width="390" height="95" rx="10" class="box"/>
+    <text x="75" y="1473" class="subheading">Log Analytics - STORE</text>
+    <text x="75" y="1500" class="small">Selected process / HMI / host / cloud logs</text>
+    <text x="75" y="1525" class="small">KQL / configured deterministic detections</text>
+    <rect id="defender-store" x="485" y="1445" width="390" height="95" rx="10" class="security"/>
+    <text x="505" y="1473" class="subheading">Defender native evidence - STORE</text>
+    <text x="505" y="1500" class="small">Endpoint evidence / alerts / retention</text>
+    <text x="505" y="1525" class="small">Not all records exported to Log Analytics</text>
+    <rect id="iqdb" x="915" y="1445" width="390" height="95" rx="10" class="box"/>
+    <text x="935" y="1473" class="subheading">IQ DB / Cosmos DB - STORE</text>
+    <text x="935" y="1500" class="small">Entities / mappings / typed relationships</text>
+    <text x="935" y="1525" class="small">Approved versions / validity / provenance</text>
+    <rect id="support-stores" x="1345" y="1445" width="400" height="95" rx="10" class="box"/>
+    <text x="1365" y="1473" class="subheading">Case / Blob STORES; Search INDEX</text>
+    <text x="1365" y="1500" class="small">Workflow / files / state / cited knowledge</text>
+    <text x="1365" y="1525" class="small">Separate records and permission scopes</text>
+    <path id="site-evidence-store" d="M250 1340V1400" class="line"/>
+    <path id="native-evidence-store" d="M750 1340V1375H680V1400" class="security-line"/>
+    <path id="selected-security-export" d="M850 1340V1360H425V1400" class="security-line" stroke-dasharray="7 5"/>
+    <text x="470" y="1355" class="small">Selected supported exports</text>
+    <path id="iqdb-publish" d="M1400 1340V1380H1110V1400" class="line"/>
+    <path id="knowledge-publish" d="M1640 1340V1400" class="line"/>
   </g>
-  <path id="iq-evidence-query" d="M915 1370V1385H20V1580H550V1600" class="query-line"/>
-  <text x="600" y="1588" class="small">Scoped queries / selected Log Analytics evidence</text>
-  <path id="iqdb-read" d="M1470 1540V1600" class="query-line"/>
-  <text x="1500" y="1588" class="small">Scoped reads / context</text>
+  <path id="iq-evidence-query" d="M250 1540V1575H550V1600" class="query-line"/>
+  <path id="iqdb-read" d="M1110 1540V1600" class="query-line"/>
+  <path id="knowledge-read" d="M1545 1540V1600" class="query-line"/>
+  <text x="570" y="1588" class="small">Scoped queries / bounded results</text>
+  <text x="1140" y="1588" class="small">Context</text>
+  <text x="1570" y="1588" class="small">Cases / knowledge</text>
 
   <g id="iq-and-advisory" transform="translate(0 200)">
   <g id="iq-layer">
   <title>Utility IQ shared context layer</title>
   <desc>The existing utility API combines authorized evidence queries, reviewed asset relationships and approved knowledge. This logical capability supports the four agents without new equipment-control paths or an additional deployment service.</desc>
   <rect x="35" y="1400" width="1730" height="100" rx="14" fill="#fff8e9" stroke="#b48b39" stroke-width="2"/>
-  <text x="55" y="1428" class="heading">UTILITY IQ LAYER - shared context via the existing utility API and stores</text>
+  <text x="55" y="1428" class="heading">3. UTILITY IQ LAYER - shared meaning and context through the scoped API</text>
   <text x="55" y="1458" class="small">WHAT: ontology / canonical IDs / typed relationships / approved runbooks. WHY: relate process, security, identity and maintenance evidence.</text>
-  <text x="55" y="1485" class="small">HOW: scoped API reads IQ DB context + selected Log Analytics evidence + cited knowledge. Fabric optional; no inferred causation from timing alone.</text>
+  <text x="55" y="1485" class="small">HOW: authorized store-specific tools assemble bounded context. Defender adapter gated; missing access explicit. Timing alone is not causation.</text>
   </g>
 
   <g id="agent-layer" transform="translate(0 440)">
   <rect x="35" y="1090" width="1730" height="420" rx="16" fill="#eff9f3" stroke="#4f9271" stroke-width="2"/>
-  <text x="55" y="1124" class="heading">UTILITY ADVISORY PLATFORM - four custom agents + Microsoft-managed Perception blue</text>
+  <text x="55" y="1124" class="heading">4. ADVISORY AGENT LAYER - four custom agents + Microsoft-managed Perception blue</text>
   <rect x="55" y="1150" width="300" height="110" rx="10" class="box"/>
   <text x="75" y="1182" class="subheading">Exposure Assessor</text>
   <text x="75" y="1211" class="small">Read-only configuration</text>
