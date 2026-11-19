@@ -283,9 +283,6 @@ def test_actual_readonly_proxy_rejects_writes_and_force_requests(runtime):
     assert not after.isError() and after.registers == before.registers
 
 
-def test_actual_hmi_setpoint_reaches_openplc_and_gateway(runtime, monkeypatch):
-
-
 def test_actual_openplc_concurrent_clients_keep_response_identity(runtime):
     from concurrent.futures import ThreadPoolExecutor
 
@@ -307,6 +304,9 @@ def test_actual_openplc_concurrent_clients_keep_response_identity(runtime):
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         list(executor.map(read, range(1, 65)))
+
+
+def test_actual_hmi_setpoint_reaches_openplc_and_gateway(runtime, monkeypatch):
     client, sensors, port, _ = runtime
     profile = load_profile("uta")
     client.close()
