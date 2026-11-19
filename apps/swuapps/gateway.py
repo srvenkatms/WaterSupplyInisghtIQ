@@ -17,6 +17,7 @@ from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
 from pymodbus.client import ModbusTcpClient
+from pymodbus.exceptions import ModbusException
 
 from swugen import load_profile
 from swugen.edgefilter import EdgeFilter
@@ -110,7 +111,7 @@ class Gateway:
         previous = copy.deepcopy(self._checkpoint())
         try:
             values = from_block(self.plc.read_block())
-        except (ConnectionError, OSError, ValueError):
+        except (ConnectionError, OSError, ValueError, ModbusException):
             logging.exception("Gateway PLC poll failed")
             self.failures += 1
             self.plc.close()

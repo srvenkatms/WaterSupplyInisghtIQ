@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from pymodbus.exceptions import ConnectionException, ModbusIOException
 
 from swugen import load_profile
 from swuapps.gateway import Gateway
@@ -40,6 +41,30 @@ class Sink:
 
 def gateway(plc, sink, path):
     return Gateway(plc, sink, "uta", load_profile("uta")["safeLimits"], state_dir=path)
+
+
+@pytest.mark.parametrize("error_type", [ConnectionException, ModbusIOException])
+def test_modbus_failure_emits_unreachable_then_recovers(error_type, monkeypatch):
+    plc, sink = Plc(), Sink()
+    gw = gateway(plc, sink, None)
+    gw.poll(NOW)
+    closed = []
+
+    def fail():
+        raise error_type("Synthetic Modbus transport failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(plc, "read_block", fail)
+        patch.setattr(plc, "close", lambda: closed.append(True))
+        for i in range(1, 5):
+            gw.poll(NOW + timedelta(seconds=5 * i))
+
+    assert len(closed) == 4
+    assert gw.failures == 4
+    assert len([e for e in sink.records if e["EventType"] == "PlcUnreachable"]) == 1
+    recovered = gw.poll(NOW + timedelta(seconds=25))
+    assert any(e["Tag"] == "PLC" and e["EventType"] == "Recovered" for e in recovered)
+    assert gw.failures == 0 and gw.last_unreachable is None
 
 
 def test_append_failure_rolls_back_edge_state(tmp_path, monkeypatch):
