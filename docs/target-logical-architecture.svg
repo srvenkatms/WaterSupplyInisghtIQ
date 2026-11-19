@@ -193,10 +193,6 @@
     <text x="1095" y="1211" class="small">Cyber triage / investigation</text>
     <text x="1095" y="1236" class="small">Microsoft-managed capability</text>
   </g>
-  <text x="700" y="1410" class="small">Purple dashed output: analyst-reviewed finding to case API; automated adapter gated.</text>
-  <text x="55" y="1445" class="small">Perception: supported Sentinel / Defender security coverage only, not automatic access to every Log Analytics table or custom PLC sample.</text>
-  <text x="55" y="1470" class="small">Core / blue GA (Nov 17, 2026); external MCP / APIs preview. Purple = Microsoft-managed, outside our Container Apps / VNet; adoption gate applies.</text>
-  <text x="55" y="1495" class="small">No red / green handoffs, PLC writes, host isolation or plant administration. Missing cyber coverage stays visible; local control stays independent.</text>
   </g>
 
   <g id="operator-layer" transform="translate(0 540)">
