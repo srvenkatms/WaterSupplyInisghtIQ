@@ -284,6 +284,29 @@ def test_actual_readonly_proxy_rejects_writes_and_force_requests(runtime):
 
 
 def test_actual_hmi_setpoint_reaches_openplc_and_gateway(runtime, monkeypatch):
+
+
+def test_actual_openplc_concurrent_clients_keep_response_identity(runtime):
+    from concurrent.futures import ThreadPoolExecutor
+
+    _, _, port, _ = runtime
+
+    def read(transaction):
+        count = transaction % 6 + 1
+        packet = struct.pack(">HHHBBHH", transaction, 0, 6, 1, 3, 0, count)
+        with socket.create_connection(("127.0.0.1", port), timeout=5) as connection:
+            connection.sendall(packet)
+            response = b""
+            expected_size = 9 + count * 2
+            while len(response) < expected_size:
+                data = connection.recv(expected_size - len(response))
+                assert data, "OpenPLC closed before returning the complete response"
+                response += data
+        assert response[:9] == struct.pack(">HHHBBB", transaction, 0, 3 + count * 2,
+                                          1, 3, count * 2)
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(read, range(1, 65)))
     client, sensors, port, _ = runtime
     profile = load_profile("uta")
     client.close()

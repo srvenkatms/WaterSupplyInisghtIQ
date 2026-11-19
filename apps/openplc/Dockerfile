@@ -7,7 +7,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 WORKDIR /opt/openplc/webserver
 COPY tank_control.st st_files/tank_control.st
 COPY hardware.cpp core/hardware_layer.cpp
-RUN cp core/debug.blank core/debug.cpp \
+COPY thread-isolation.patch /opt/swu/thread-isolation.patch
+RUN git -C /opt/openplc apply --check /opt/swu/thread-isolation.patch \
+    && git -C /opt/openplc apply /opt/swu/thread-isolation.patch \
+    && cp core/debug.blank core/debug.cpp \
     && echo linux > scripts/openplc_platform && echo blank_linux > scripts/openplc_driver \
     && ./scripts/compile_program.sh tank_control.st
 COPY start.py /opt/swu/start.py
