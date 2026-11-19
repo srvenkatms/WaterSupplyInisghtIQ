@@ -188,6 +188,16 @@ The Utility IQ layer adds shared meaning and evidence relationships through the
 existing scoped API and stores; it is not another agent, VM or ingestion gateway.
 See section 8.3 for its purpose, implementation approach and dedicated diagram.
 
+The SVG's double-headed API/IQ and IQ/evidence links distinguish requests from
+results: our custom agents call the scoped API, which implements IQ context
+resolution and authorized evidence queries; bounded results return through that
+API. Up toward Log Analytics means a query, and down means selected retrieved
+evidence, not continuous ingestion of all logs into a second IQ store. Cosmos
+relationships and approved document retrieval use the same authorization gate.
+The API and IQ boxes describe logical responsibilities, not two mandatory network
+hops. Case writes and other tools keep their own role/purpose checks; not every
+API call needs a Log Analytics query.
+
 Perception belongs in the **same logical Utility Advisory Platform layer** as
 the four custom agents. Purple distinguishes the Microsoft-managed cyber
 capability from our container-hosted workers; the grouping does not place

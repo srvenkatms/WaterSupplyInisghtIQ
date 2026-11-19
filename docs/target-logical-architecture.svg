@@ -3,6 +3,7 @@
   <desc id="description">Proposed design, not deployed. Local tank sensors feed a PLC, which commands a motor starter or drive and pump. A dedicated plant PC accesses a separate HMI; the business PC has no plant-control access. One edge gateway contains collector and relay services. Native AMA and Defender agents collect host evidence separately. Both collection paths cross the utility firewall. Private process and Windows ingestion uses the site-to-Azure VPN; Defender and identity services use approved service egress. Entra sign-ins and Azure firewall and VPN diagnostics originate in cloud services. Process and security evidence converge in utility-scoped Log Analytics and Sentinel. Four separate container-hosted agents use a utility-scoped API for evidence, cases and approved runbooks, and call Foundry models for inference. Private portal access requires human VPN, Entra ID and MFA. External incident sharing requires human approval. There is no cloud-to-PLC command path. Four utility VMs are proposed; the business PC is real-site context, not a fifth initial VM.</desc>
   <defs>
     <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#32627c"/></marker>
+    <marker id="query-arrow" markerWidth="5" markerHeight="5" refX="4.5" refY="2.5" orient="auto-start-reverse"><path d="M0 0L5 2.5L0 5Z" fill="#32627c"/></marker>
     <marker id="security-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#73539b"/></marker>
     <marker id="access-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#b46b13"/></marker>
     <g id="person">
@@ -19,6 +20,7 @@
       .box{fill:#fff;stroke:#4483a9;stroke-width:1.8}
       .security{fill:#fcf9ff;stroke:#9775b3;stroke-width:1.8}
       .line{fill:none;stroke:#32627c;stroke-width:2.6;marker-end:url(#arrow)}
+      .query-line{fill:none;stroke:#32627c;stroke-width:2.6;marker-start:url(#query-arrow);marker-end:url(#query-arrow)}
       .security-line{fill:none;stroke:#73539b;stroke-width:2.6;marker-end:url(#security-arrow)}
       .person{fill:none;stroke:#b46b13;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
       .access-line{fill:none;stroke:#b46b13;stroke-width:3;stroke-dasharray:8 5;marker-end:url(#access-arrow)}
@@ -146,7 +148,8 @@
   <g id="iq-layer">
   <title>Utility IQ shared context layer</title>
   <desc>The existing utility API combines authorized evidence queries, reviewed asset relationships and approved knowledge. This logical capability supports the four agents without new equipment-control paths or an additional deployment service.</desc>
-  <path d="M915 1370V1400" class="line"/>
+  <path id="iq-evidence-query" d="M915 1370V1400" class="query-line"/>
+  <text x="550" y="1392" class="small">Queries up / selected evidence down</text>
   <rect x="35" y="1400" width="1730" height="100" rx="14" fill="#fff8e9" stroke="#b48b39" stroke-width="2"/>
   <text x="55" y="1428" class="heading">UTILITY IQ LAYER - shared context via the existing utility API and stores</text>
   <text x="55" y="1458" class="small">WHAT: ontology / canonical IDs / typed relationships / approved runbooks. WHY: relate process, security, identity and maintenance evidence.</text>
@@ -183,8 +186,8 @@
   <path d="M885 1260V1325H360V1395" class="line"/>
   <path d="M1580 1260V1350H550V1395" class="line"/>
   <path d="M585 1430H665" class="line"/>
-  <path d="M55 1430H20V1075H915V1060" class="line"/>
-  <text x="950" y="1080" class="small">API queries IQ context; no direct PLC or broad data credentials</text>
+  <path id="api-iq-context" d="M55 1430H20V1075H915V1060" class="query-line"/>
+  <text x="950" y="1080" class="small">Scoped API / IQ: requests and bounded context results</text>
   <g id="perception-lane">
     <title>Microsoft-managed cyber capability within the logical utility advisory platform: proposed, not enabled</title>
     <desc>Perception blue triage and investigation use supported security evidence, not assumed custom PLC or Cosmos access. Core and blue capabilities are GA per Microsoft's November 17, 2026 announcement; external APIs and MCP integration remain preview. Initial handoff is an authorized analyst recording a reviewed finding in the private case API. Automated synchronization requires separate acceptance. No red or green handoffs or plant actions are authorized.</desc>
