@@ -1,0 +1,74 @@
+name: Route A-B lifecycle
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Operation (status is read-only)
+        type: choice
+        options: [status, pause, resume]
+        default: status
+        required: true
+      confirmation:
+        description: "For changes, type exactly pause:swurab or resume:swurab"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: route-ab-lifecycle
+  cancel-in-progress: false
+
+jobs:
+  lifecycle:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    environment: lab-lifecycle-cpi
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      CPI_CLIENT_ID: ${{ vars.CPI_AZURE_CLIENT_ID }}
+      CPI_TENANT_ID: ${{ vars.CPI_AZURE_TENANT_ID }}
+      CPI_SUBSCRIPTION_ID: ${{ vars.CPI_AZURE_SUBSCRIPTION_ID }}
+      ACTION: ${{ inputs.action }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - name: Require explicit scoped configuration and confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${CPI_CLIENT_ID:?Configure the lab-lifecycle-cpi environment client ID}"
+          : "${CPI_TENANT_ID:?Configure the lab-lifecycle-cpi environment tenant ID}"
+          : "${CPI_SUBSCRIPTION_ID:?Configure the lab-lifecycle-cpi environment subscription ID}"
+          case "$ACTION" in
+            status) ;;
+            pause|resume) [[ "$CONFIRMATION" == "$ACTION:swurab" ]] ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.CPI_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.CPI_AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.CPI_AZURE_SUBSCRIPTION_ID }}
+      - name: Run guarded lifecycle operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=("$ACTION" --subscription "$CPI_SUBSCRIPTION_ID" --tenant "$CPI_TENANT_ID")
+          if [[ "$ACTION" != status ]]; then
+            args+=(--apply --confirm "$CONFIRMATION")
+          fi
+          python scripts/route-lifecycle.py "${args[@]}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: route-lifecycle-${{ github.run_id }}
+          path: test-results/route-lifecycle.json
+          if-no-files-found: warn

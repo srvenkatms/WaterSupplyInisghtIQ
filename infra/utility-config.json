@@ -1,0 +1,292 @@
+[
+  {
+    "id": "uta",
+    "name": "Utility A",
+    "tier": "process",
+    "processSource": "gateway",
+    "watchlists": [
+      {
+        "alias": "Roster",
+        "key": "UserPrincipalName",
+        "csv": "UserPrincipalName,Role,OnCallDays\r\nop1@uta.lab.example,Operator,1 2 3 4 5\r\nop2@uta.lab.example,Operator,0 6\r\n",
+        "hasItems": true
+      },
+      {
+        "alias": "Vendors",
+        "key": "UserPrincipalName",
+        "csv": "UserPrincipalName,Vendor,Days,StartHour,EndHour\r\nintegrator@vendor.lab.example,SCADA integrator,1 2 3 4 5,8,17\r\nchem@supplier.lab.example,Chemical supplier,2,9,12\r\n",
+        "hasItems": true
+      },
+      {
+        "alias": "SafeLimits",
+        "key": "Tag",
+        "csv": "Tag,Min,Max\r\nClDoseSetpoint,0.5,3.0\r\nClResidual,0.2,4.0\r\nPumpHighSetpoint,50,95\r\nPumpLowSetpoint,20,60\r\nTankLevelPct,10,95\r\n",
+        "hasItems": true
+      },
+      {
+        "alias": "MaintenanceWindows",
+        "key": "Start",
+        "csv": "Start,End,Description\r\n",
+        "hasItems": false
+      },
+      {
+        "alias": "Backups",
+        "key": "Asset",
+        "csv": "Asset,LastBackup\r\nPLC-plant,2026-11-01\r\nSCADA-config,2026-11-01\r\n",
+        "hasItems": true
+      },
+      {
+        "alias": "RemoteTools",
+        "key": "FileName",
+        "csv": "FileName,Product\r\nteamviewer.exe,TeamViewer\r\nanydesk.exe,AnyDesk\r\nrustdesk.exe,RustDesk\r\nscreenconnect.clientservice.exe,ScreenConnect\r\nsrservice.exe,Splashtop\r\nvncserver.exe,VNC\r\ntvnserver.exe,TightVNC\r\nlogmein.exe,LogMeIn\r\n",
+        "hasItems": true
+      },
+      {
+        "alias": "DisabledAccounts",
+        "key": "UserPrincipalName",
+        "csv": "UserPrincipalName,DisabledAt,UtilityId\r\n",
+        "hasItems": false
+      },
+      {
+        "alias": "SourceReceipts",
+        "key": "Source",
+        "csv": "Source,LastSeen\r\n",
+        "hasItems": false
+      },
+      {
+        "alias": "AccessHistory",
+        "key": "Upn",
+        "csv": "Upn,SourceIp,Location,SeenAt\r\n",
+        "hasItems": false
+      },
+      {
+        "alias": "IncidentHistory",
+        "key": "IncidentNumber",
+        "csv": "IncidentNumber,ChangedAt,Severity,Status\r\n",
+        "hasItems": false
+      }
+    ],
+    "healthSources": [
+      {
+        "Source": "SwuFirewall",
+        "MaxSilenceMin": 60
+      },
+      {
+        "Source": "SwuProcess",
+        "MaxSilenceMin": 30
+      },
+      {
+        "Source": "SwuEndpoint",
+        "MaxSilenceMin": 60
+      },
+      {
+        "Source": "SwuSignins",
+        "MaxSilenceMin": 60
+      },
+      {
+        "Source": "SwuAccess",
+        "MaxSilenceMin": 60
+      },
+      {
+        "Source": "SwuExposure",
+        "MaxSilenceMin": 11520
+      },
+      {
+        "Source": "SwuInventory",
+        "MaxSilenceMin": 11520
+      }
+    ]
+  },
+  {
+    "id": "utb",
+    "name": "Utility B",
+    "tier": "baseline",
+    "processSource": "none",
+    "watchlists": [
+      {
+        "alias": "Roster",
+        "key": "UserPrincipalName",
+        "csv": "UserPrincipalName,Role,OnCallDays\r\nop1@utb.lab.example,Operator,0 1 2 3 4 5 6\r\n",
+        "hasItems": true
+      },
+      {
+        "alias": "Vendors",
+        "key": "UserPrincipalName",
+        "csv": "UserPrincipalName,Vendor,Days,StartHour,EndHour\r\nintegrator@vendor.lab.example,SCADA integrator,1 2 3 4 5,8,17\r\n",
+        "hasItems": true
+      },
+      {
+        "alias": "SafeLimits",
+        "key": "Tag",
+        "csv": "Tag,Min,Max\r\nClDoseSetpoint,0.5,3.0\r\nClResidual,0.2,4.0\r\nPumpHighSetpoint,50,95\r\nPumpLowSetpoint,20,60\r\nTankLevelPct,10,95\r\n",
+        "hasItems": true
+      },
+      {
+        "alias": "MaintenanceWindows",
+        "key": "Start",
+        "csv": "Start,End,Description\r\n",
+        "hasItems": false
+      },
+      {
+        "alias": "Backups",
+        "key": "Asset",
+        "csv": "Asset,LastBackup\r\nPLC-plant,2026-11-01\r\nSCADA-config,2026-11-01\r\n",
+        "hasItems": true
+      },
+      {
+        "alias": "RemoteTools",
+        "key": "FileName",
+        "csv": "FileName,Product\r\nteamviewer.exe,TeamViewer\r\nanydesk.exe,AnyDesk\r\nrustdesk.exe,RustDesk\r\nscreenconnect.clientservice.exe,ScreenConnect\r\nsrservice.exe,Splashtop\r\nvncserver.exe,VNC\r\ntvnserver.exe,TightVNC\r\nlogmein.exe,LogMeIn\r\n",
+        "hasItems": true
+      },
+      {
+        "alias": "DisabledAccounts",
+        "key": "UserPrincipalName",
+        "csv": "UserPrincipalName,DisabledAt,UtilityId\r\n",
+        "hasItems": false
+      },
+      {
+        "alias": "SourceReceipts",
+        "key": "Source",
+        "csv": "Source,LastSeen\r\n",
+        "hasItems": false
+      },
+      {
+        "alias": "AccessHistory",
+        "key": "Upn",
+        "csv": "Upn,SourceIp,Location,SeenAt\r\n",
+        "hasItems": false
+      },
+      {
+        "alias": "IncidentHistory",
+        "key": "IncidentNumber",
+        "csv": "IncidentNumber,ChangedAt,Severity,Status\r\n",
+        "hasItems": false
+      }
+    ],
+    "healthSources": [
+      {
+        "Source": "SwuFirewall",
+        "MaxSilenceMin": 60
+      },
+      {
+        "Source": "SwuEndpoint",
+        "MaxSilenceMin": 60
+      },
+      {
+        "Source": "SwuSignins",
+        "MaxSilenceMin": 60
+      },
+      {
+        "Source": "SwuAccess",
+        "MaxSilenceMin": 60
+      },
+      {
+        "Source": "SwuExposure",
+        "MaxSilenceMin": 11520
+      },
+      {
+        "Source": "SwuInventory",
+        "MaxSilenceMin": 11520
+      }
+    ]
+  },
+  {
+    "id": "utc",
+    "name": "Utility C",
+    "tier": "otvisibility",
+    "processSource": "model",
+    "watchlists": [
+      {
+        "alias": "Roster",
+        "key": "UserPrincipalName",
+        "csv": "UserPrincipalName,Role,OnCallDays\r\nop1@utc.lab.example,Operator,1 2\r\nop2@utc.lab.example,Operator,3 4\r\nop3@utc.lab.example,Operator,0 5 6\r\n",
+        "hasItems": true
+      },
+      {
+        "alias": "Vendors",
+        "key": "UserPrincipalName",
+        "csv": "UserPrincipalName,Vendor,Days,StartHour,EndHour\r\nintegrator@vendor.lab.example,SCADA integrator,1 2 3 4 5,8,17\r\nplcvendor@vendor.lab.example,PLC vendor,3,9,15\r\nit@msp.lab.example,IT provider,1 2 3 4 5,7,18\r\n",
+        "hasItems": true
+      },
+      {
+        "alias": "SafeLimits",
+        "key": "Tag",
+        "csv": "Tag,Min,Max\r\nClDoseSetpoint,0.5,3.0\r\nClResidual,0.2,4.0\r\nPumpHighSetpoint,50,95\r\nPumpLowSetpoint,20,60\r\nTankLevelPct,10,95\r\n",
+        "hasItems": true
+      },
+      {
+        "alias": "MaintenanceWindows",
+        "key": "Start",
+        "csv": "Start,End,Description\r\n",
+        "hasItems": false
+      },
+      {
+        "alias": "Backups",
+        "key": "Asset",
+        "csv": "Asset,LastBackup\r\nPLC-plant,2026-11-01\r\nSCADA-config,2026-11-01\r\n",
+        "hasItems": true
+      },
+      {
+        "alias": "RemoteTools",
+        "key": "FileName",
+        "csv": "FileName,Product\r\nteamviewer.exe,TeamViewer\r\nanydesk.exe,AnyDesk\r\nrustdesk.exe,RustDesk\r\nscreenconnect.clientservice.exe,ScreenConnect\r\nsrservice.exe,Splashtop\r\nvncserver.exe,VNC\r\ntvnserver.exe,TightVNC\r\nlogmein.exe,LogMeIn\r\n",
+        "hasItems": true
+      },
+      {
+        "alias": "DisabledAccounts",
+        "key": "UserPrincipalName",
+        "csv": "UserPrincipalName,DisabledAt,UtilityId\r\n",
+        "hasItems": false
+      },
+      {
+        "alias": "SourceReceipts",
+        "key": "Source",
+        "csv": "Source,LastSeen\r\n",
+        "hasItems": false
+      },
+      {
+        "alias": "AccessHistory",
+        "key": "Upn",
+        "csv": "Upn,SourceIp,Location,SeenAt\r\n",
+        "hasItems": false
+      },
+      {
+        "alias": "IncidentHistory",
+        "key": "IncidentNumber",
+        "csv": "IncidentNumber,ChangedAt,Severity,Status\r\n",
+        "hasItems": false
+      }
+    ],
+    "healthSources": [
+      {
+        "Source": "SwuFirewall",
+        "MaxSilenceMin": 60
+      },
+      {
+        "Source": "SwuProcess",
+        "MaxSilenceMin": 30
+      },
+      {
+        "Source": "SwuEndpoint",
+        "MaxSilenceMin": 60
+      },
+      {
+        "Source": "SwuSignins",
+        "MaxSilenceMin": 60
+      },
+      {
+        "Source": "SwuAccess",
+        "MaxSilenceMin": 60
+      },
+      {
+        "Source": "SwuExposure",
+        "MaxSilenceMin": 11520
+      },
+      {
+        "Source": "SwuInventory",
+        "MaxSilenceMin": 11520
+      }
+    ]
+  }
+]

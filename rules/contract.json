@@ -1,0 +1,13 @@
+{
+  "DR-01": {"severity": "Medium", "maxLatencyMinutes": 15, "techniques": ["T0886"]},
+  "DR-02": {"severity": "High", "maxLatencyMinutes": 15, "techniques": ["T0859"]},
+  "DR-03": {"severity": "High", "maxLatencyMinutes": 15, "techniques": ["T0846"]},
+  "DR-04": {"severity": "High", "maxLatencyMinutes": 15, "techniques": ["T0886"]},
+  "DR-05": {"severity": "High", "maxLatencyMinutes": 15, "techniques": ["T0843", "T0858"]},
+  "DR-06": {"severity": "High", "maxLatencyMinutes": 15, "techniques": ["T0836"]},
+  "DR-07": {"severity": "High", "maxLatencyMinutes": 5, "techniques": ["T0831"]},
+  "DR-08": {"severity": "High", "maxLatencyMinutes": 15, "techniques": ["T0859"]},
+  "DR-09": {"severity": "High", "maxLatencyMinutes": 15, "techniques": ["T0886"]},
+  "DR-10": {"severity": "High", "maxLatencyMinutes": 15, "techniques": ["T0828"]},
+  "DR-11": {"severity": "Low", "maxLatencyMinutes": 15, "techniques": ["T0804"]}
+}

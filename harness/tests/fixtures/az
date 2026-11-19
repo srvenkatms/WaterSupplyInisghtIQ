@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "${SWU_COMMAND_LOG:?}"
+if [[ "$*" == "functionapp deployment source config-zip"* && -n "${SWU_STUB_STORAGE_FAILURES:-}" ]]; then
+  ATTEMPTS=$(grep -c '^functionapp deployment source config-zip' "$SWU_COMMAND_LOG")
+  if (( ATTEMPTS <= SWU_STUB_STORAGE_FAILURES )); then
+    echo 'BlobUploadFailedException: storage upload failed: 403' >&2
+    exit 1
+  fi
+fi
+if [[ -n "${SWU_STUB_FAIL:-}" && "$*" == "$SWU_STUB_FAIL"* ]]; then
+  echo "Synthetic Azure command failure" >&2
+  exit 2
+fi
+case "$*" in
+  "functionapp deployment source config-zip"*)
+    if [[ "${SWU_STUB_CHECK_PACKAGE:-}" == 1 ]]; then
+      while [[ "$1" != --src ]]; do shift; done
+      shift
+      python -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).getinfo("swugen/source_health.kql")' "$1"
+    fi
+    ;;
+  "group exists"*) printf '%s\n' "${SWU_STUB_GROUP_EXISTS:-false}" ;;
+  "group show"*)
+    if [[ "$*" == *"tags.deployment"* ]]; then
+      printf '%s\n' "${SWULAB_PREFIX:-swulab}"
+    else
+      printf '%s\n' swu-lab
+    fi
+    ;;
+  "consumption budget list"*) echo '[]' ;;
+  "network nsg rule list"*) echo 0 ;;
+  "network route-table route list"*) echo "${SWU_STUB_DENY_ROUTES:-1}" ;;
+  "network vnet subnet show"*)
+    if [[ "$*" == *"routeTable.id"* ]]; then
+      printf '/synthetic/routeTables/rt-%s-uta-isolated\n' "${SWULAB_PREFIX:-swulab}"
+    else
+      echo
+    fi
+    ;;
+  "vm run-command invoke"*)
+    if [[ "${SWU_STUB_NO_MARKER:-}" == 1 ]]; then
+      echo '{"value":[{"message":"Command admitted, script failed"}]}'
+    else
+      echo '{"value":[{"message":"__SWULAB_COMMAND_OK__"}]}'
+    fi
+    ;;
+esac

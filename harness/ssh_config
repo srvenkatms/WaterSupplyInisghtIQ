@@ -1,0 +1,22 @@
+Host swu-attack
+    HostName 127.0.0.1
+    Port 2201
+    HostKeyAlias swu-attack
+Host swu-gateway
+    HostName 127.0.0.1
+    Port 2202
+    HostKeyAlias swu-gateway
+Host swu-plc
+    HostName 127.0.0.1
+    Port 2203
+    HostKeyAlias swu-plc
+Host swu-attack swu-gateway swu-plc
+    User labadmin
+    IdentityFile /run/secrets/id_ed25519
+    IdentitiesOnly yes
+    BatchMode yes
+    StrictHostKeyChecking yes
+    UserKnownHostsFile /run/secrets/known_hosts
+    ConnectTimeout 10
+    ServerAliveInterval 15
+    ServerAliveCountMax 3

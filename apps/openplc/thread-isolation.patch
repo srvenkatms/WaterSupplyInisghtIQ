@@ -1,0 +1,46 @@
+diff --git a/webserver/core/server.cpp b/webserver/core/server.cpp
+--- a/webserver/core/server.cpp
++++ b/webserver/core/server.cpp
+@@ -230,6 +230,7 @@ void *handleConnections(void *arguments)
+     int *args = (int *)arguments;
+     int client_fd = args[0];
+     int protocol_type = args[1];
++    delete[] args;
+     unsigned char buffer[NET_BUFFER_SIZE];
+     int messageSize;
+     bool *run_server;
+@@ -324,7 +325,7 @@ void startServer(uint16_t port, int protocol_type)
+ 
+         else
+         {
+-            int arguments[2];
++            int *arguments = new int[2];
+             pthread_t thread;
+             int ret = -1;
+             sprintf(log_msg, "Server: Client accepted! Creating thread for the new client ID: %d...\n", client_fd);
+@@ -337,6 +338,13 @@ void startServer(uint16_t port, int protocol_type)
+             {
+                 pthread_detach(thread);
+             }
++            else
++            {
++                delete[] arguments;
++                close(client_fd);
++                sprintf(log_msg, "Server: client thread creation failed: %s\n", strerror(ret));
++                openplc_log(log_msg);
++            }
+         }
+     }
+     close(socket_fd);
+diff --git a/webserver/core/modbus.cpp b/webserver/core/modbus.cpp
+--- a/webserver/core/modbus.cpp
++++ b/webserver/core/modbus.cpp
+@@ -85,7 +85,7 @@ IEC_UINT mb_input_regs[MAX_INP_REGS];
+ IEC_UINT mb_holding_regs[MAX_HOLD_REGS];
+ 
+-int MessageLength;
++thread_local int MessageLength;
+ 
+ #include "debug.h"
+ 
+ // Debugger functions

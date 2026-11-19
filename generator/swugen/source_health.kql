@@ -1,0 +1,8 @@
+union
+    (SwuSigninsFeed | extend HealthFeed = "SwuSignins"),
+    (SwuAccessFeed | extend HealthFeed = "SwuAccess"),
+    (SwuFirewallFeed | extend HealthFeed = "SwuFirewall"),
+    (SwuEndpointFeed | extend HealthFeed = "SwuEndpoint"),
+    (SwuProcess | extend HealthFeed = "SwuProcess"),
+    (SwuExposure | extend HealthFeed = "SwuExposure"),
+    (SwuInventory | extend HealthFeed = "SwuInventory")
