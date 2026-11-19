@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="2020" height="2460" viewBox="-220 0 2020 2460" style="max-width:100%;height:auto" role="img" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="2240" height="2460" viewBox="-220 0 2240 2460" style="max-width:100%;height:auto" role="img" aria-labelledby="title description">
   <title id="title">Water Utility InsightIQ: Target logical architecture</title>
   <desc id="description">Proposed design, not deployed. Local tank sensors feed a PLC, which commands a motor starter or drive and pump. A dedicated plant PC accesses a separate HMI; the business PC has no plant-control access. One edge gateway contains collector and relay services. Native AMA and Defender agents collect host evidence separately. Both collection paths cross the utility firewall. Private process and Windows ingestion uses the site-to-Azure VPN; Defender and identity services use approved service egress. Entra sign-ins and Azure firewall and VPN diagnostics originate in cloud services. Process and security evidence converge in utility-scoped Log Analytics and Sentinel. Four separate container-hosted agents use a utility-scoped API for evidence, cases and approved runbooks, and call Foundry models for inference. Private portal access requires human VPN, Entra ID and MFA. External incident sharing requires human approval. There is no cloud-to-PLC command path. Four utility VMs are proposed; the business PC is real-site context, not a fifth initial VM.</desc>
   <defs>
@@ -24,7 +24,7 @@
       .access-line{fill:none;stroke:#b46b13;stroke-width:3;stroke-dasharray:8 5;marker-end:url(#access-arrow)}
     </style>
   </defs>
-  <rect x="-220" width="2020" height="2460" fill="#f6f9fc"/>
+  <rect x="-220" width="2240" height="2460" fill="#f6f9fc"/>
   <text x="35" y="45" class="title">Water Utility InsightIQ: Target logical architecture</text>
   <text x="35" y="77" class="body">PROPOSED / NOT DEPLOYED | Local control stays local | Utility process reasoning + separate Perception blue cyber lane</text>
 
@@ -210,8 +210,20 @@
   <text x="1325" y="1539" class="small">Utility / designated state contacts / CISA</text>
   <path d="M525 1528H665" class="access-line"/>
   <path d="M1165 1528H1305" class="line"/>
-  <path d="M320 1250V1360H915V1480" class="line"/>
   <text x="55" y="1595" class="small">No agent PLC writes or host administration. Sharing requires verified recipients + human approval. IoT Hub remains optional.</text>
+  </g>
+  <g id="cyber-flow-connectors">
+    <title>Cyber input and reviewed output, routed outside component boxes</title>
+    <path id="cyber-input" d="M1745 1280H1785V1880H1745" class="security-line"/>
+    <text x="1800" y="1570" class="small">
+      <tspan x="1800" dy="0">INPUT</tspan>
+      <tspan x="1800" dy="25">Supported security</tspan>
+      <tspan x="1800" dy="25">detections / evidence</tspan>
+      <tspan x="1800" dy="25">from native integrations</tspan>
+    </text>
+    <path id="cyber-output" d="M1100 1825V1815H450V1790" class="security-line"/>
+    <text x="700" y="1808" class="small">OUTPUT: reviewed finding to case API; automation gated</text>
+    <path id="case-to-portal" d="M320 1790V1800H-10V2008H915V2020" class="line"/>
   </g>
   <path d="M-190 100H-135" class="access-line"/>
   <text x="-200" y="133" class="small">Human access</text>
