@@ -154,8 +154,8 @@
   </g>
 
   <g id="agent-layer" transform="translate(0 440)">
-  <rect x="35" y="1090" width="1730" height="285" rx="16" fill="#eff9f3" stroke="#4f9271" stroke-width="2"/>
-  <text x="55" y="1124" class="heading">UTILITY ADVISORY PLATFORM - four custom Container Apps agents, Foundry inference</text>
+  <rect x="35" y="1090" width="1730" height="420" rx="16" fill="#eff9f3" stroke="#4f9271" stroke-width="2"/>
+  <text x="55" y="1124" class="heading">UTILITY ADVISORY PLATFORM - four custom agents + Microsoft-managed Perception blue</text>
   <rect x="55" y="1150" width="330" height="85" rx="10" class="box"/>
   <text x="75" y="1182" class="subheading">Exposure Assessor</text>
   <text x="75" y="1211" class="small">Read-only utility configuration review</text>
@@ -181,16 +181,15 @@
   <path d="M585 1315H665" class="line"/>
   <path d="M55 1315H20V1075H915V1060" class="line"/>
   <text x="950" y="1080" class="small">API queries IQ context; no direct PLC or broad data credentials</text>
-  </g>
-
-  <g id="perception-lane">
-    <title>Separate managed cyber lane: proposed, not enabled</title>
+  <g id="perception-lane" transform="translate(0 -440)">
+    <title>Microsoft-managed cyber capability within the logical utility advisory platform: proposed, not enabled</title>
     <desc>Perception blue triage and investigation use supported security evidence, not assumed custom PLC or Cosmos access. Core and blue capabilities are GA per Microsoft's November 17, 2026 announcement; external APIs and MCP integration remain preview. Initial handoff is an authorized analyst recording a reviewed finding in the private case API. Automated synchronization requires separate acceptance. No red or green handoffs or plant actions are authorized.</desc>
-    <rect x="35" y="1830" width="1730" height="115" rx="14" class="security"/>
-    <text x="55" y="1858" class="heading">SEPARATE CYBER LANE - Microsoft-managed Perception blue; tenant / policy adoption gate</text>
-    <text x="55" y="1884" class="small">Supported security detections -&gt; blue investigation -&gt; analyst-reviewed finding -&gt; private case API -&gt; linked utility impact task.</text>
-    <text x="55" y="1908" class="small">Core / blue GA (Nov 17, 2026); external MCP / APIs preview. No automatic sync until validated; Perception is not another Container App.</text>
-    <text x="55" y="1932" class="small">No red / green handoffs, PLC writes, host isolation or plant administration. Missing cyber coverage stays visible; local control stays independent.</text>
+    <rect x="55" y="1825" width="1690" height="115" rx="14" class="security"/>
+    <text x="75" y="1853" class="heading">MICROSOFT-MANAGED CYBER CAPABILITY - Perception blue; tenant / policy adoption gate</text>
+    <text x="75" y="1879" class="small">Supported security detections -&gt; blue investigation -&gt; analyst-reviewed finding -&gt; private case API -&gt; linked utility impact task.</text>
+    <text x="75" y="1903" class="small">Core / blue GA (Nov 17, 2026); external MCP / APIs preview. Purple = Microsoft-managed; not hosted in our Container Apps or VNet.</text>
+    <text x="75" y="1927" class="small">No red / green handoffs, PLC writes, host isolation or plant administration. Missing cyber coverage stays visible; local control stays independent.</text>
+  </g>
   </g>
 
   <g id="operator-layer" transform="translate(0 540)">

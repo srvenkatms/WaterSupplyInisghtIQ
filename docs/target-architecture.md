@@ -111,14 +111,15 @@ flowchart TB
     ResourceDiagnostics["Azure-managed firewall / VPN resources<br/>Own logs via diagnostic settings"]
     EvidenceContext["Utility-scoped evidence and cases<br/>Separate schemas + asset context + approved runbooks"]
     UtilityIQ["Utility IQ layer<br/>Shared meaning, relationships and grounded context via scoped API"]
-    subgraph AgentConcept["FOUR COOPERATING AGENTS"]
+    subgraph AgentConcept["UTILITY ADVISORY PLATFORM - logical capabilities, not one hosting boundary"]
       Exposure["Exposure Assessor<br/>Read-only utility configuration review"]
       Coach["Operator Coach<br/>Explain approved next steps"]
       Monitor["Monitoring Agent<br/>Process anomalies / quality / operational impact"]
       Coordinator["Response Coordinator<br/>Organize incident response"]
+      Perception["Microsoft-managed Perception blue<br/>Supported cyber triage / investigation<br/>Tenant adoption gate; no plant actions"]
     end
     PrivatePortal["Private operator portal<br/>Findings / guidance / alerts / approvals"]
-    Perception["Microsoft-managed Perception blue<br/>Supported cyber triage / investigation<br/>Tenant adoption gate; no plant actions"]
+    style Perception fill:#fcf9ff,stroke:#9775b3,stroke-width:2px
     CyberHandoff["Reviewed cyber finding via case API<br/>Human submission initially<br/>Automated adapter gated on preview validation"]
     WaterReceiver --> EvidenceContext
     SecurityReceiver --> EvidenceContext
@@ -186,6 +187,12 @@ not another provisioned lab VM.
 The Utility IQ layer adds shared meaning and evidence relationships through the
 existing scoped API and stores; it is not another agent, VM or ingestion gateway.
 See section 8.3 for its purpose, implementation approach and dedicated diagram.
+
+Perception belongs in the **same logical Utility Advisory Platform layer** as
+the four custom agents. Purple distinguishes the Microsoft-managed cyber
+capability from our container-hosted workers; the grouping does not place
+Perception inside our Container Apps environment, VNet or authorization boundary.
+Its separate evidence path, adoption gate and reviewed handoff still apply.
 
 ### 2.1 Layered physical architecture and components
 
@@ -273,8 +280,11 @@ flowchart TB
     Security["Native Security Integration"]
     Evidence["Evidence and Detection"]
     IQ["Utility IQ Layer<br/>Meaning / relationships / grounded context via scoped API"]
-    Agents["Four utility advisory agents<br/>Process / exposure configuration / coaching / cases"]
-    Perception["Microsoft-managed Perception blue<br/>Supported cyber investigation; adoption gate"]
+    subgraph Advisory["UTILITY ADVISORY PLATFORM - logical layer"]
+      Agents["Four custom utility advisory agents<br/>Process / exposure configuration / coaching / cases"]
+      Perception["Microsoft-managed Perception blue<br/>Supported cyber investigation; adoption gate"]
+    end
+    style Perception fill:#fcf9ff,stroke:#9775b3,stroke-width:2px
     Handoff["Human-reviewed case handoff<br/>Preview adapter only after validation"]
     Portal["Private Operator Portal"]
     CloudVPN --> Ingestion
