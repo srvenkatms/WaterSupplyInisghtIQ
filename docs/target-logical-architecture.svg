@@ -156,40 +156,47 @@
   <g id="agent-layer" transform="translate(0 440)">
   <rect x="35" y="1090" width="1730" height="420" rx="16" fill="#eff9f3" stroke="#4f9271" stroke-width="2"/>
   <text x="55" y="1124" class="heading">UTILITY ADVISORY PLATFORM - four custom agents + Microsoft-managed Perception blue</text>
-  <rect x="55" y="1150" width="330" height="85" rx="10" class="box"/>
+  <rect x="55" y="1150" width="300" height="110" rx="10" class="box"/>
   <text x="75" y="1182" class="subheading">Exposure Assessor</text>
-  <text x="75" y="1211" class="small">Read-only utility configuration review</text>
-  <rect x="515" y="1150" width="330" height="85" rx="10" class="box"/>
-  <text x="535" y="1182" class="subheading">Operator Coach</text>
-  <text x="535" y="1211" class="small">Cited step-by-step operator guidance</text>
-  <rect x="975" y="1150" width="330" height="85" rx="10" class="box"/>
-  <text x="995" y="1182" class="subheading">Monitoring Agent</text>
-  <text x="995" y="1211" class="small">Process / quality / operational impact</text>
-  <rect x="1435" y="1150" width="310" height="85" rx="10" class="box"/>
-  <text x="1455" y="1182" class="subheading">Response Coordinator</text>
-  <text x="1455" y="1211" class="small">Cases / timeline / escalation drafts</text>
-  <rect x="55" y="1280" width="530" height="70" rx="10" class="box"/>
-  <text x="75" y="1309" class="subheading">Utility-scoped query / case API</text>
-  <text x="75" y="1335" class="small">Server-enforced role, utility and bounded tool permissions</text>
-  <rect x="665" y="1280" width="1080" height="70" rx="10" class="box"/>
-  <text x="685" y="1309" class="subheading">Shared services with explicit authorization</text>
-  <text x="685" y="1335" class="small">Agents call Foundry; API mediates AI Search / Cosmos DB / Blob evidence / work and poison queues</text>
-  <path d="M220 1235V1280" class="line"/>
-  <path d="M680 1235V1257H420V1280" class="line"/>
-  <path d="M1140 1235V1265H490V1280" class="line"/>
-  <path d="M1590 1235V1272H555V1280" class="line"/>
-  <path d="M585 1315H665" class="line"/>
-  <path d="M55 1315H20V1075H915V1060" class="line"/>
+  <text x="75" y="1211" class="small">Read-only configuration</text>
+  <text x="75" y="1236" class="small">and coverage review</text>
+  <rect x="395" y="1150" width="300" height="110" rx="10" class="box"/>
+  <text x="415" y="1182" class="subheading">Operator Coach</text>
+  <text x="415" y="1211" class="small">Cited operator guidance</text>
+  <text x="415" y="1236" class="small">Approved procedures</text>
+  <rect x="735" y="1150" width="300" height="110" rx="10" class="box"/>
+  <text x="755" y="1182" class="subheading">Monitoring Agent</text>
+  <text x="755" y="1211" class="small">Process / evidence quality</text>
+  <text x="755" y="1236" class="small">Operational impact</text>
+  <rect x="1415" y="1150" width="330" height="110" rx="10" class="box"/>
+  <text x="1435" y="1182" class="subheading">Response Coordinator</text>
+  <text x="1435" y="1211" class="small">Cases / timeline</text>
+  <text x="1435" y="1236" class="small">Escalation drafts</text>
+  <rect x="55" y="1305" width="530" height="70" rx="10" class="box"/>
+  <text x="75" y="1334" class="subheading">Utility-scoped query / case API</text>
+  <text x="75" y="1360" class="small">Server-enforced role, utility and bounded tool permissions</text>
+  <rect x="665" y="1305" width="1080" height="70" rx="10" class="box"/>
+  <text x="685" y="1334" class="subheading">Shared services with explicit authorization</text>
+  <text x="685" y="1360" class="small">Custom agents call Foundry; API mediates Search / Cosmos DB / Blob evidence / work queues</text>
+  <path d="M205 1260V1305" class="line"/>
+  <path d="M545 1260V1270H290V1305" class="line"/>
+  <path d="M885 1260V1278H360V1305" class="line"/>
+  <path d="M1580 1260V1285H550V1305" class="line"/>
+  <path d="M585 1340H665" class="line"/>
+  <path d="M55 1340H20V1075H915V1060" class="line"/>
   <text x="950" y="1080" class="small">API queries IQ context; no direct PLC or broad data credentials</text>
-  <g id="perception-lane" transform="translate(0 -440)">
+  <g id="perception-lane">
     <title>Microsoft-managed cyber capability within the logical utility advisory platform: proposed, not enabled</title>
     <desc>Perception blue triage and investigation use supported security evidence, not assumed custom PLC or Cosmos access. Core and blue capabilities are GA per Microsoft's November 17, 2026 announcement; external APIs and MCP integration remain preview. Initial handoff is an authorized analyst recording a reviewed finding in the private case API. Automated synchronization requires separate acceptance. No red or green handoffs or plant actions are authorized.</desc>
-    <rect x="55" y="1825" width="1690" height="115" rx="14" class="security"/>
-    <text x="75" y="1853" class="heading">MICROSOFT-MANAGED CYBER CAPABILITY - Perception blue; tenant / policy adoption gate</text>
-    <text x="75" y="1879" class="small">Supported security detections -&gt; blue investigation -&gt; analyst-reviewed finding -&gt; private case API -&gt; linked utility impact task.</text>
-    <text x="75" y="1903" class="small">Core / blue GA (Nov 17, 2026); external MCP / APIs preview. Purple = Microsoft-managed; not hosted in our Container Apps or VNet.</text>
-    <text x="75" y="1927" class="small">No red / green handoffs, PLC writes, host isolation or plant administration. Missing cyber coverage stays visible; local control stays independent.</text>
+    <rect x="1075" y="1150" width="300" height="110" rx="10" class="security"/>
+    <text x="1095" y="1182" class="subheading">Perception blue</text>
+    <text x="1095" y="1211" class="small">Cyber triage / investigation</text>
+    <text x="1095" y="1236" class="small">Microsoft-managed capability</text>
   </g>
+  <text x="700" y="1410" class="small">Purple dashed output: analyst-reviewed finding to case API; automated adapter gated.</text>
+  <text x="55" y="1445" class="small">Perception: supported Sentinel / Defender security coverage only, not automatic access to every Log Analytics table or custom PLC sample.</text>
+  <text x="55" y="1470" class="small">Core / blue GA (Nov 17, 2026); external MCP / APIs preview. Purple = Microsoft-managed, outside our Container Apps / VNet; adoption gate applies.</text>
+  <text x="55" y="1495" class="small">No red / green handoffs, PLC writes, host isolation or plant administration. Missing cyber coverage stays visible; local control stays independent.</text>
   </g>
 
   <g id="operator-layer" transform="translate(0 540)">
@@ -214,16 +221,16 @@
   </g>
   <g id="cyber-flow-connectors">
     <title>Cyber input and reviewed output, routed outside component boxes</title>
-    <path id="cyber-input" d="M1745 1280H1785V1880H1745" class="security-line"/>
-    <text x="1800" y="1570" class="small">
+    <path id="cyber-input" d="M1100 1340V1385H1785V1580H1225V1590" class="security-line"/>
+    <text x="1800" y="1420" class="small">
       <tspan x="1800" dy="0">INPUT</tspan>
       <tspan x="1800" dy="25">Supported security</tspan>
       <tspan x="1800" dy="25">detections / evidence</tspan>
-      <tspan x="1800" dy="25">from native integrations</tspan>
+      <tspan x="1800" dy="25">Sentinel / Defender</tspan>
+      <tspan x="1800" dy="25">Not all workspace data</tspan>
     </text>
-    <path id="cyber-output" d="M1100 1825V1815H450V1790" class="security-line"/>
-    <text x="700" y="1808" class="small">OUTPUT: reviewed finding to case API; automation gated</text>
-    <path id="case-to-portal" d="M320 1790V1800H-10V2008H915V2020" class="line"/>
+    <path id="cyber-output" d="M1225 1700V1735H450V1745" class="security-line" stroke-dasharray="7 5"/>
+    <path id="case-to-portal" d="M320 1815V1830H-10V2008H915V2020" class="line"/>
   </g>
   <path d="M-190 100H-135" class="access-line"/>
   <text x="-200" y="133" class="small">Human access</text>

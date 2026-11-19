@@ -193,6 +193,13 @@ the four custom agents. Purple distinguishes the Microsoft-managed cyber
 capability from our container-hosted workers; the grouping does not place
 Perception inside our Container Apps environment, VNet or authorization boundary.
 Its separate evidence path, adoption gate and reviewed handoff still apply.
+The SVG places Perception between Monitoring and Response Coordinator in the
+same capability row. Its input branches from the Log Analytics/Sentinel evidence
+tier and represents **supported Sentinel/Defender security alerts and evidence**,
+not automatic consumption of all workspace rows or custom process tables.
+Defender evidence can remain in its native service. The dashed purple output
+represents analyst-reviewed case submission initially, not a direct automatic
+service connection; the preview adapter remains separately gated.
 
 ### 2.1 Layered physical architecture and components
 
