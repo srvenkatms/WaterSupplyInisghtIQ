@@ -1,5 +1,6 @@
 """Required CI gate: compile and run real OpenPLC, never substitute SoftPlc."""
 import json
+import logging
 import os
 import struct
 import subprocess
@@ -52,7 +53,11 @@ def runtime(tmp_path_factory):
                 pytest.fail("Actual OpenPLC did not become healthy:\n" + docker("logs", name))
             time.sleep(1)
         assert int(docker("port", name, "1502/tcp").rsplit(":", 1)[1]) == port
-        client = ModbusTcpClient("127.0.0.1", port=port)
+        def trace_packet(sending, data):
+            logging.debug("OpenPLC packet sending=%s: %s", sending, data.hex())
+            return data
+
+        client = ModbusTcpClient("127.0.0.1", port=port, trace_packet=trace_packet)
         assert client.connect()
         yield client, sensors, port, name
     finally:
